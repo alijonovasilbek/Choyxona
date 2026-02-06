@@ -44,7 +44,7 @@ class UserResponse(BaseModel):
     telegram_chat_id: Optional[str] = None
     is_active: bool
     roles: List[UserRoleEnum]
-    created_at: Optional[datetime] = None  # <--- Shuni o'zgartiring
+    created_at: datetime
 
 
 # ==================== USER MANAGEMENT SCHEMAS ====================
@@ -79,16 +79,14 @@ class RoomUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
-# schemas.py faylida RoomResponse qismini quyidagicha yangilang:
-
 class RoomResponse(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
     capacity: int
     is_active: bool
-    created_at: Optional[datetime] = None  # <--- Optional qo'shildi
-    updated_at: Optional[datetime] = None  # <--- Optional qo'shildi
+    created_at: datetime
+    updated_at: datetime
 
 
 # ==================== BOOKING SCHEMAS ====================

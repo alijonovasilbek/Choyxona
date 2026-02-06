@@ -56,8 +56,7 @@ async def create_booking(
             detail="Cannot create booking for past dates"
         )
 
-    # Insert booking
-    now = datetime.now()
+    # Insert booking - created_at va updated_at avtomatik qo'shiladi
     insert_query = insert(bookings).values(
         room_id=booking_data.room_id,
         booking_date=booking_data.booking_date,
@@ -68,9 +67,7 @@ async def create_booking(
         food_description=booking_data.food_description,
         description=booking_data.description,
         status=BookingStatus.KUTILMOQDA,
-        created_by=current_user['id'],
-        created_at=now,
-        updated_at=now
+        created_by=current_user['id']
     )
     booking_id = await database.execute(insert_query)
 
@@ -380,9 +377,8 @@ async def update_booking(
     if booking_data.description is not None:
         update_data['description'] = booking_data.description
 
-    # Update booking
+    # Update booking - updated_at avtomatik yangilanadi
     if update_data:
-        update_data['updated_at'] = datetime.now()
         update_query = update(bookings).where(bookings.c.id == booking_id).values(**update_data)
         await database.execute(update_query)
 
@@ -446,8 +442,7 @@ async def update_booking_status(
 
     # Prepare update data
     update_data = {
-        'status': status_data.status.value,
-        'updated_at': datetime.now()
+        'status': status_data.status.value
     }
 
     # Handle status-specific fields
@@ -473,7 +468,7 @@ async def update_booking_status(
         update_data['total_amount'] = None
         update_data['cancellation_reason'] = None
 
-    # Update booking
+    # Update booking - updated_at avtomatik yangilanadi
     update_query = update(bookings).where(bookings.c.id == booking_id).values(**update_data)
     await database.execute(update_query)
 

@@ -115,9 +115,15 @@ async def login(user_credentials: OAuth2PasswordRequestForm = Depends()):
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: dict = Depends(get_current_user)):
     """Get current authenticated user information."""
-    # LOG:
-    print(f"--- API: /me endpointi chaqirildi ---")
-    print(f"Foydalanuvchi ma'lumotlari: {current_user}")
+    # Fetch full user data from database to get created_at
+    user_query = select(users).where(users.c.id == current_user['id'])
+    user_data = await database.fetch_one(user_query)
+
+    if not user_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
 
     return {
         "id": current_user['id'],
@@ -127,5 +133,5 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "telegram_chat_id": current_user['telegram_chat_id'],
         "is_active": current_user['is_active'],
         "roles": current_user['roles'],
-        "created_at": current_user.get('created_at')
+        "created_at": user_data['created_at']
     }
