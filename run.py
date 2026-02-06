@@ -1,26 +1,60 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
-from starlette.responses import JSONResponse
+from database import database
 
-# Routers
-# from routers.auth import router as auth_router
+# Import routers
+from routers.auth_router import router as auth_router
+from routers.users_router import router as users_router
+from routers.rooms_router import router as rooms_router
+from routers.bookings_router import router as bookings_router
+from routers.reports_router import router as reports_router
+from routers.notifications_router import router as notifications_router
+
+# Import scheduler
+from services.scheduler import scheduler
 
 # --------------------------------------------------
 # FASTAPI APP CONFIG
 # --------------------------------------------------
 app = FastAPI(
-    title="CIMS Table-Based Auth API",
+    title="Choyxona Bron Tizimi API",
     version="1.0.0",
-    description="Table-based SQLAlchemy bilan Auth Sistema",
+    description="Choyxona uchun bron tizimi - Xonalar, Bronlar va Hisobotlar",
 )
 
 
 # --------------------------------------------------
-# CORS (handled only here, not in nginx)
+# DATABASE CONNECTION & SCHEDULER
+# --------------------------------------------------
+@app.on_event("startup")
+async def startup():
+    """Connect to database and start scheduler on startup"""
+    await database.connect()
+    print("✅ Database connected")
+
+    # Start notification scheduler
+    scheduler.start()
+    print("✅ Notification scheduler started")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    """Disconnect from database and stop scheduler on shutdown"""
+    scheduler.shutdown()
+    print("❌ Notification scheduler stopped")
+
+    await database.disconnect()
+    print("❌ Database disconnected")
+
+
+# --------------------------------------------------
+# CORS
 # --------------------------------------------------
 origins = [
-
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8000",
 ]
 
 app.add_middleware(
@@ -31,22 +65,38 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # --------------------------------------------------
 # ROUTERS
 # --------------------------------------------------
-# app.include_router(auth_router)
-
-
+app.include_router(auth_router)
+app.include_router(users_router)
+app.include_router(rooms_router)
+app.include_router(bookings_router)
+app.include_router(reports_router)
+app.include_router(notifications_router)
 
 
 @app.get("/")
 async def root():
+    """API Root endpoint"""
     return {
-        "message": "🚀 CIMS Table-Based Auth API",
-        "approach": "Table-based SQLAlchemy",
+        "message": "🍵 Choyxona Bron Tizimi API",
+        "version": "1.0.0",
         "docs": "/docs",
+        "features": [
+            "User Authentication (JWT)",
+            "User Management (Superadmin, Admin, Oshpaz)",
+            "Room/Place Management",
+            "Booking System",
+            "Reports & Analytics"
+        ]
     }
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "database": "connected"}
 
 
 # --------------------------------------------------
@@ -54,4 +104,5 @@ async def root():
 # --------------------------------------------------
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("run:app", host="0.0.0.0", port=8000, reload=True)

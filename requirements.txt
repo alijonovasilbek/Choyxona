@@ -1,0 +1,34 @@
+
+
+# FastAPI and Server
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Database
+databases[asyncpg]
+asyncpg
+psycopg2-binary
+SQLAlchemy
+alembic
+
+# Authentication
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+
+# Environment Variables
+python-dotenv
+
+# Email (Brevo/SMTP)
+aiosmtplib
+
+# Telegram Bot (for notifications)
+python-telegram-bot
+
+# Scheduler
+APScheduler
+
+# Utilities
+pydantic
+pydantic[email]
