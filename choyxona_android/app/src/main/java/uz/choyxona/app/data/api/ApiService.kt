@@ -14,8 +14,14 @@ import java.util.concurrent.TimeUnit
 // ==================== API INTERFACES ====================
 
 interface AuthService {
+    @FormUrlEncoded
     @POST("auth/login")
-    suspend fun login(@Body request: UserLoginRequest): Response<TokenResponse>
+    suspend fun login(
+        @Field("username") username: String,
+        @Field("password") password: String,
+        @Field("grant_type") grantType: String = "password"
+    ): Response<TokenResponse>
+
 
     @POST("auth/register")
     suspend fun register(@Body request: UserRegisterRequest): Response<UserResponse>
@@ -163,7 +169,8 @@ interface ReportService {
 
 object ApiClient {
 
-    private val BASE_URL = BuildConfig.BASE_URL.removeSuffix("/api")
+    private val BASE_URL = BuildConfig.BASE_URL
+
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = if (BuildConfig.DEBUG) {

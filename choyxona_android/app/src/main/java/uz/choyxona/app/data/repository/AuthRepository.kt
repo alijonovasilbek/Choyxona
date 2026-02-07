@@ -12,13 +12,17 @@ class AuthRepository {
 
     suspend fun login(username: String, password: String): Result<TokenResponse> {
         return try {
-            val request = UserLoginRequest(username, password)
-            val response = api.login(request)
+            val response = api.login(
+                username = username,
+                password = password
+            )
 
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.message()))
+                Result.failure(
+                    Exception(response.errorBody()?.string() ?: "Login failed")
+                )
             }
         } catch (e: Exception) {
             Result.failure(e)
