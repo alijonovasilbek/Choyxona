@@ -1,7 +1,7 @@
 from sqlalchemy import MetaData, Table, Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Enum, Text, Date, Time
 from datetime import datetime
 import enum
-from sqlalchemy import DateTime, func
+from sqlalchemy import func
 
 metadata = MetaData()
 
@@ -30,19 +30,8 @@ users = Table(
     Column('password_hash', String(255), nullable=False),
     Column('telegram_chat_id', String(100), nullable=True),  # For notifications
     Column('is_active', Boolean, default=True),
-    Column(
-        'created_at',
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False
-    ),
-    Column(
-        'updated_at',
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False
-    ),
+    Column('created_at', DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column('updated_at', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
 )
 
 
@@ -53,7 +42,7 @@ user_roles = Table(
     Column('id', Integer, primary_key=True, autoincrement=True),
     Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
     Column('role', Enum(UserRole), nullable=False),
-    Column('assigned_at', DateTime, default=datetime.utcnow),
+    Column('assigned_at', DateTime, nullable=False, server_default=func.now()),
 )
 
 
@@ -66,8 +55,8 @@ rooms = Table(
     Column('description', Text, nullable=True),
     Column('capacity', Integer, nullable=False),  # Nechta odam sig'adi
     Column('is_active', Boolean, default=True),
-    Column('created_at', DateTime, default=datetime.utcnow),
-    Column('updated_at', DateTime, default=datetime.utcnow, onupdate=datetime.utcnow),
+    Column('created_at', DateTime, nullable=False, server_default=func.now()),
+    Column('updated_at', DateTime, nullable=False, server_default=func.now(), onupdate=func.now()),
 )
 
 
@@ -88,8 +77,8 @@ bookings = Table(
     Column('total_amount', Float, nullable=True),  # Summa (faqat muvaffaqiyatli bo'lganda)
     Column('cancellation_reason', Text, nullable=True),  # Bekor qilish sababi
     Column('created_by', Integer, ForeignKey('users.id'), nullable=False),  # Kim yaratdi
-    Column('created_at', DateTime, default=datetime.utcnow),
-    Column('updated_at', DateTime, default=datetime.utcnow, onupdate=datetime.utcnow),
+    Column('created_at', DateTime, nullable=False, server_default=func.now()),
+    Column('updated_at', DateTime, nullable=False, server_default=func.now(), onupdate=func.now()),
 )
 
 
@@ -101,6 +90,6 @@ notifications = Table(
     Column('booking_id', Integer, ForeignKey('bookings.id', ondelete='CASCADE'), nullable=False),
     Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
     Column('message', Text, nullable=False),
-    Column('sent_at', DateTime, default=datetime.utcnow),
+    Column('sent_at', DateTime, nullable=False, server_default=func.now()),
     Column('is_sent', Boolean, default=False),
 )

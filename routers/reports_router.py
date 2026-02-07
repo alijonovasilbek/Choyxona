@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query
-from sqlalchemy import select, func, and_, extract, case
+from sqlalchemy import select, func, and_, extract, case, cast, Float, Integer
 from database import database
 from models.main_models import bookings, rooms, BookingStatus, UserRole
 from schemas import BookingStatsResponse, MonthlyReportResponse
@@ -60,9 +60,14 @@ async def get_booking_stats(
         bekor_qilindi_query = bekor_qilindi_query.where(and_(*conditions))
     bekor_qilindi_count = await database.fetch_val(bekor_qilindi_query)
 
-    # Get total revenue (sum of successful bookings)
-    revenue_query = select(func.sum(bookings.c.total_amount)).select_from(bookings).where(
-        bookings.c.status == BookingStatus.MUVAFFAQIYATLI
+    # Get total revenue (sum of successful bookings) - COALESCE handles NULL values
+    revenue_query = select(
+        func.coalesce(func.sum(bookings.c.total_amount), 0)
+    ).select_from(bookings).where(
+        and_(
+            bookings.c.status == BookingStatus.MUVAFFAQIYATLI,
+            bookings.c.total_amount.isnot(None)
+        )
     )
     if conditions:
         revenue_query = revenue_query.where(and_(*conditions))
@@ -126,33 +131,51 @@ async def monthly_report(year: int, month: int, current_user: dict = Depends(req
     )
     pending_bookings = await database.fetch_val(pending_query)
 
-    # Get total revenue
-    revenue_query = select(func.sum(bookings.c.total_amount)).select_from(bookings).where(
+    # Get total revenue - COALESCE handles NULL values
+    revenue_query = select(
+        func.coalesce(func.sum(bookings.c.total_amount), 0)
+    ).select_from(bookings).where(
         and_(
             extract('year', bookings.c.booking_date) == year,
             extract('month', bookings.c.booking_date) == month,
-            bookings.c.status == BookingStatus.MUVAFFAQIYATLI
+            bookings.c.status == BookingStatus.MUVAFFAQIYATLI,
+            bookings.c.total_amount.isnot(None)
         )
     )
     total_revenue = await database.fetch_val(revenue_query)
 
-    # Get breakdown by room - TUZATILGAN case sintaksisi
+    # Get breakdown by room - Fixed CASE expression
     room_query = select(
         rooms.c.id,
         rooms.c.name,
         func.count(bookings.c.id).label('total_bookings'),
         func.sum(
-            case(
-                (bookings.c.status == BookingStatus.MUVAFFAQIYATLI, 1),
-                else_=0
+            cast(
+                case(
+                    (bookings.c.status == BookingStatus.MUVAFFAQIYATLI, 1),
+                    else_=0
+                ), Integer
             )
         ).label('successful_count'),
-        func.sum(
-            case(
-                (bookings.c.status == BookingStatus.MUVAFFAQIYATLI, bookings.c.total_amount),
-                else_=0
-            )
+
+        func.coalesce(
+            func.sum(
+                cast(
+                    case(
+                        (
+                            and_(
+                                bookings.c.status == BookingStatus.MUVAFFAQIYATLI,
+                                bookings.c.total_amount.isnot(None)
+                            ),
+                            bookings.c.total_amount
+                        ),
+                        else_=0
+                    ), Float
+                )
+            ),
+            0
         ).label('revenue')
+
     ).select_from(
         rooms.outerjoin(
             bookings,
