@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.gradlew build:*)",
+      "Bash(./gradlew:*)",
+      "Bash(gradlew.bat:*)",
+      "Bash(cmd.exe /c \"cd /d C:\\\\Users\\\\Home\\\\PycharmProjects\\\\Choyxona\\\\choyxona_android && gradlew.bat build --stacktrace 2>&1\")",
+      "Bash(./gradlew.bat:*)"
+    ]
+  }
+}

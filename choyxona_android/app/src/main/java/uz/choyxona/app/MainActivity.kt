@@ -1,0 +1,151 @@
+package uz.choyxona.app
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import uz.choyxona.app.data.local.TokenManager
+import uz.choyxona.app.data.model.BookingResponse
+import uz.choyxona.app.data.model.RoomResponse
+import uz.choyxona.app.data.repository.BookingRepository
+import uz.choyxona.app.data.repository.ReportRepository
+import uz.choyxona.app.data.repository.RoomRepository
+import uz.choyxona.app.ui.screen.*
+import uz.choyxona.app.ui.theme.ChoyxonaTheme
+import uz.choyxona.app.ui.viewmodel.AuthViewModel
+import uz.choyxona.app.ui.viewmodel.MainViewModel
+
+class MainActivity : ComponentActivity() {
+    private lateinit var tokenManager: TokenManager
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        tokenManager = TokenManager(applicationContext)
+
+        setContent {
+            ChoyxonaTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    ChoyxonaApp(tokenManager)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ChoyxonaApp(
+    tokenManager: TokenManager
+) {
+    val navController = rememberNavController()
+    val authViewModel: AuthViewModel = viewModel {
+        AuthViewModel(tokenManager = tokenManager)
+    }
+    val mainViewModel: MainViewModel = viewModel {
+        MainViewModel(
+            tokenManager = tokenManager,
+            bookingRepository = BookingRepository(),
+            roomRepository = RoomRepository(),
+            reportRepository = ReportRepository()
+        )
+    }
+
+    val uiState by authViewModel.uiState.collectAsState()
+    val mainUiState by mainViewModel.uiState.collectAsState()
+
+    // Navigation
+    NavHost(
+        navController = navController,
+        startDestination = if (uiState.isLoggedIn) "dashboard" else "login"
+    ) {
+        composable("login") {
+            LoginScreen(
+                viewModel = authViewModel,
+                onLoginSuccess = {
+                    mainViewModel.loadData()
+                    navController.navigate("dashboard") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable("dashboard") {
+            DashboardScreen(
+                currentUser = uiState.currentUser,
+                stats = mainUiState.dashboardStats,
+                onNavigateToBookings = {
+                    navController.navigate("bookings")
+                },
+                onNavigateToRooms = {
+                    navController.navigate("rooms")
+                },
+                onNavigateToReports = {
+                    navController.navigate("reports")
+                },
+                onLogout = {
+                    authViewModel.logout()
+                }
+            )
+        }
+
+        composable("bookings") {
+            BookingsScreen(
+                bookings = mainUiState.bookings,
+                isLoading = mainUiState.isLoading,
+                onRefresh = {
+                    mainViewModel.loadBookings()
+                },
+                onBookingClick = { booking ->
+                    // TODO: Navigate to booking details
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onCreateBooking = {
+                    // TODO: Navigate to create booking
+                }
+            )
+        }
+
+        composable("rooms") {
+            RoomsScreen(
+                rooms = mainUiState.rooms,
+                isLoading = mainUiState.isLoading,
+                onRefresh = {
+                    mainViewModel.loadRooms()
+                },
+                onRoomClick = { room ->
+                    // TODO: Navigate to room details
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onCreateRoom = {
+                    // TODO: Navigate to create room
+                }
+            )
+        }
+
+        composable("reports") {
+            ReportsScreen(
+                isLoading = mainUiState.isLoading,
+                stats = mainUiState.reportStats,
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+    }
+}
