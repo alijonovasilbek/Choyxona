@@ -1,11 +1,12 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query
-from sqlalchemy import select, func, and_, extract, case, cast, Float, Integer
+from sqlalchemy import select, func, and_, or_
 from database import database
 from models.main_models import bookings, rooms, BookingStatus, UserRole
 from schemas import BookingStatsResponse, MonthlyReportResponse
 from auth import require_admin, get_current_user
 from typing import Optional
 from datetime import date, datetime
+from calendar import monthrange
 
 router = APIRouter(prefix="/reports", tags=["Reports & Analytics"])
 
@@ -94,11 +95,16 @@ async def monthly_report(year: int, month: int, current_user: dict = Depends(req
     - Monthly statistics
     - Breakdown by room
     """
+    # Calculate date range for the month
+    first_day = date(year, month, 1)
+    last_day_num = monthrange(year, month)[1]
+    last_day = date(year, month, last_day_num)
+
     # Get total bookings for the month
     total_query = select(func.count()).select_from(bookings).where(
         and_(
-            extract('year', bookings.c.booking_date) == year,
-            extract('month', bookings.c.booking_date) == month
+            bookings.c.booking_date >= first_day,
+            bookings.c.booking_date <= last_day
         )
     )
     total_bookings = await database.fetch_val(total_query)
@@ -106,8 +112,8 @@ async def monthly_report(year: int, month: int, current_user: dict = Depends(req
     # Get count by status
     successful_query = select(func.count()).select_from(bookings).where(
         and_(
-            extract('year', bookings.c.booking_date) == year,
-            extract('month', bookings.c.booking_date) == month,
+            bookings.c.booking_date >= first_day,
+            bookings.c.booking_date <= last_day,
             bookings.c.status == BookingStatus.MUVAFFAQIYATLI
         )
     )
@@ -115,8 +121,8 @@ async def monthly_report(year: int, month: int, current_user: dict = Depends(req
 
     cancelled_query = select(func.count()).select_from(bookings).where(
         and_(
-            extract('year', bookings.c.booking_date) == year,
-            extract('month', bookings.c.booking_date) == month,
+            bookings.c.booking_date >= first_day,
+            bookings.c.booking_date <= last_day,
             bookings.c.status == BookingStatus.BEKOR_QILINDI
         )
     )
@@ -124,8 +130,8 @@ async def monthly_report(year: int, month: int, current_user: dict = Depends(req
 
     pending_query = select(func.count()).select_from(bookings).where(
         and_(
-            extract('year', bookings.c.booking_date) == year,
-            extract('month', bookings.c.booking_date) == month,
+            bookings.c.booking_date >= first_day,
+            bookings.c.booking_date <= last_day,
             bookings.c.status == BookingStatus.KUTILMOQDA
         )
     )
@@ -136,69 +142,67 @@ async def monthly_report(year: int, month: int, current_user: dict = Depends(req
         func.coalesce(func.sum(bookings.c.total_amount), 0)
     ).select_from(bookings).where(
         and_(
-            extract('year', bookings.c.booking_date) == year,
-            extract('month', bookings.c.booking_date) == month,
+            bookings.c.booking_date >= first_day,
+            bookings.c.booking_date <= last_day,
             bookings.c.status == BookingStatus.MUVAFFAQIYATLI,
             bookings.c.total_amount.isnot(None)
         )
     )
     total_revenue = await database.fetch_val(revenue_query)
 
-    # Get breakdown by room - Fixed CASE expression
-    room_query = select(
-        rooms.c.id,
-        rooms.c.name,
-        func.count(bookings.c.id).label('total_bookings'),
-        func.sum(
-            cast(
-                case(
-                    (bookings.c.status == BookingStatus.MUVAFFAQIYATLI, 1),
-                    else_=0
-                ), Integer
-            )
-        ).label('successful_count'),
+    # Get breakdown by room - SIMPLIFIED VERSION
+    # First, get all rooms
+    all_rooms_query = select(rooms.c.id, rooms.c.name).order_by(rooms.c.name)
+    all_rooms = await database.fetch_all(all_rooms_query)
 
-        func.coalesce(
-            func.sum(
-                cast(
-                    case(
-                        (
-                            and_(
-                                bookings.c.status == BookingStatus.MUVAFFAQIYATLI,
-                                bookings.c.total_amount.isnot(None)
-                            ),
-                            bookings.c.total_amount
-                        ),
-                        else_=0
-                    ), Float
-                )
-            ),
-            0
-        ).label('revenue')
+    by_room = []
 
-    ).select_from(
-        rooms.outerjoin(
-            bookings,
+    for room in all_rooms:
+        room_id = room['id']
+        room_name = room['name']
+
+        # Total bookings for this room in the month
+        room_total_query = select(func.count()).select_from(bookings).where(
             and_(
-                rooms.c.id == bookings.c.room_id,
-                extract('year', bookings.c.booking_date) == year,
-                extract('month', bookings.c.booking_date) == month
+                bookings.c.room_id == room_id,
+                bookings.c.booking_date >= first_day,
+                bookings.c.booking_date <= last_day
             )
         )
-    ).group_by(rooms.c.id, rooms.c.name).order_by(rooms.c.name)
+        room_total = await database.fetch_val(room_total_query)
 
-    room_data = await database.fetch_all(room_query)
+        # Successful bookings for this room
+        room_successful_query = select(func.count()).select_from(bookings).where(
+            and_(
+                bookings.c.room_id == room_id,
+                bookings.c.booking_date >= first_day,
+                bookings.c.booking_date <= last_day,
+                bookings.c.status == BookingStatus.MUVAFFAQIYATLI
+            )
+        )
+        room_successful = await database.fetch_val(room_successful_query)
 
-    by_room = [
-        {
-            "room_id": row['id'],
-            "room_name": row['name'],
-            "total_bookings": row['total_bookings'] or 0,
-            "successful_bookings": int(row['successful_count']) if row['successful_count'] else 0,
-            "revenue": float(row['revenue']) if row['revenue'] else 0.0
-        }
-        for row in room_data
-    ]
+        # Revenue for this room
+        room_revenue_query = select(
+            func.coalesce(func.sum(bookings.c.total_amount), 0)
+        ).select_from(bookings).where(
+            and_(
+                bookings.c.room_id == room_id,
+                bookings.c.booking_date >= first_day,
+                bookings.c.booking_date <= last_day,
+                bookings.c.status == BookingStatus.MUVAFFAQIYATLI,
+                bookings.c.total_amount.isnot(None)
+            )
+        )
+        room_revenue = await database.fetch_val(room_revenue_query)
+
+        by_room.append({
+            "room_id": room_id,
+            "room_name": room_name,
+            "total_bookings": room_total or 0,
+            "successful_bookings": room_successful or 0,
+            "revenue": float(room_revenue) if room_revenue else 0.0
+        })
 
     return {
         "year": year,

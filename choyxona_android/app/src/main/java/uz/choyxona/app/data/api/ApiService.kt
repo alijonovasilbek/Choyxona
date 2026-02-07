@@ -169,7 +169,12 @@ interface ReportService {
 
 object ApiClient {
 
-    private val BASE_URL = BuildConfig.BASE_URL
+    // TO'G'RILANDI: BASE_URL oxirida "/" qo'shamiz agar yo'q bo'lsa
+    private val BASE_URL = if (BuildConfig.BASE_URL.endsWith("/")) {
+        BuildConfig.BASE_URL
+    } else {
+        "${BuildConfig.BASE_URL}/"
+    }
 
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {

@@ -86,7 +86,8 @@ fun ChoyxonaApp(
                 currentUser = uiState.currentUser,
                 stats = mainUiState.dashboardStats,
                 onNavigateToBookings = {
-                    navController.navigate("bookings")
+                    // Haftalik kalendar ko'rinishiga o'tish
+                    navController.navigate("weekly_bookings")
                 },
                 onNavigateToRooms = {
                     navController.navigate("rooms")
@@ -96,10 +97,34 @@ fun ChoyxonaApp(
                 },
                 onLogout = {
                     authViewModel.logout()
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
 
+        // YANGI: Haftalik kalendar ko'rinishi
+        composable("weekly_bookings") {
+            WeeklyBookingsScreen(
+                bookings = mainUiState.bookings,
+                isLoading = mainUiState.isLoading,
+                onRefresh = {
+                    mainViewModel.loadBookings()
+                },
+                onBookingClick = { booking ->
+                    // TODO: Navigate to booking details
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onCreateBooking = {
+                    // TODO: Navigate to create booking
+                }
+            )
+        }
+
+        // Eski ro'yxat ko'rinishi (kerak bo'lsa)
         composable("bookings") {
             BookingsScreen(
                 bookings = mainUiState.bookings,

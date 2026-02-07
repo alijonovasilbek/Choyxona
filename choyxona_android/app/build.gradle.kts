@@ -25,20 +25,22 @@ android {
 
     buildTypes {
         getByName("debug") {
+            // TO'G'RILANDI: Oxirida slash yo'q
             buildConfigField(
                 "String",
                 "BASE_URL",
-                "\"http://10.0.2.2:8000/\""
+                "\"http://10.0.2.2:8000\""  // Oxirida / yo'q!
             )
 
             isMinifyEnabled = false
         }
 
         getByName("release") {
+            // TO'G'RILANDI: Production server manzilini kiriting
             buildConfigField(
                 "String",
                 "BASE_URL",
-                "\"http://10.0.2.2:8000/api\""
+                "\"http://10.0.2.2:8000\""  // Yoki production URL
             )
 
             isMinifyEnabled = true

@@ -8,7 +8,12 @@ import java.util.concurrent.TimeUnit
 import uz.choyxona.app.BuildConfig
 
 object RetrofitClient {
-    private const val BASE_URL = BuildConfig.BASE_URL
+    // TO'G'RILANDI: BASE_URL oxirida "/" qo'shamiz
+    private val BASE_URL = if (BuildConfig.BASE_URL.endsWith("/")) {
+        BuildConfig.BASE_URL
+    } else {
+        "${BuildConfig.BASE_URL}/"
+    }
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = if (BuildConfig.DEBUG) {
