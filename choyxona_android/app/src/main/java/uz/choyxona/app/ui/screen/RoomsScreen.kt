@@ -1,6 +1,7 @@
 package uz.choyxona.app.ui.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -22,10 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uz.choyxona.app.data.model.RoomResponse
 import uz.choyxona.app.ui.components.GlassCard
-import uz.choyxona.app.ui.theme.BackgroundLight
-import uz.choyxona.app.ui.theme.PrimaryGreen
-import uz.choyxona.app.ui.theme.TextPrimary
-import uz.choyxona.app.ui.theme.TextSecondary
+import uz.choyxona.app.ui.theme.*
 
 @Composable
 fun RoomsScreen(
@@ -34,8 +32,40 @@ fun RoomsScreen(
     onRefresh: () -> Unit,
     onRoomClick: (RoomResponse) -> Unit,
     onNavigateBack: () -> Unit,
-    onCreateRoom: () -> Unit
+    onCreateRoom: () -> Unit,
+    onEditRoom: (RoomResponse) -> Unit,
+    onDeleteRoom: (RoomResponse) -> Unit
 ) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var selectedRoom by remember { mutableStateOf<RoomResponse?>(null) }
+
+    if (showDeleteDialog && selectedRoom != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Xonani o'chirish") },
+            text = { Text("${selectedRoom?.name} xonasini o'chirmoqchimisiz?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        selectedRoom?.let { onDeleteRoom(it) }
+                        showDeleteDialog = false
+                        selectedRoom = null
+                    }
+                ) {
+                    Text("Ha", color = ErrorRed)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    selectedRoom = null
+                }) {
+                    Text("Yo'q")
+                }
+            }
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -64,7 +94,8 @@ fun RoomsScreen(
                 IconButton(onClick = onNavigateBack) {
                     Icon(
                         imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back"
+                        contentDescription = "Back",
+                        tint = PrimaryGreen
                     )
                 }
 
@@ -75,10 +106,17 @@ fun RoomsScreen(
                     color = TextPrimary
                 )
 
-                IconButton(onClick = onCreateRoom) {
+                IconButton(
+                    onClick = onCreateRoom,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(PrimaryGreen)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "Add"
+                        contentDescription = "Add",
+                        tint = Color.White
                     )
                 }
             }
@@ -90,9 +128,7 @@ fun RoomsScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(
-                        color = PrimaryGreen
-                    )
+                    CircularProgressIndicator(color = PrimaryGreen)
                 }
             } else if (rooms.isEmpty()) {
                 Box(
@@ -118,7 +154,7 @@ fun RoomsScreen(
                 }
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 160.dp),
+                    columns = GridCells.Fixed(2),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
@@ -126,7 +162,12 @@ fun RoomsScreen(
                     items(rooms) { room ->
                         RoomCard(
                             room = room,
-                            onClick = { onRoomClick(room) }
+                            onClick = { onRoomClick(room) },
+                            onEdit = { onEditRoom(room) },
+                            onDelete = {
+                                selectedRoom = room
+                                showDeleteDialog = true
+                            }
                         )
                     }
                 }
@@ -138,31 +179,79 @@ fun RoomsScreen(
 @Composable
 fun RoomCard(
     room: RoomResponse,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ) {
-    GlassCard(
+    val borderColor = if (room.isActive) CardBorderGreen else CardBorderLight
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f)
-            .clickable(onClick = onClick),
-        onClick = null
+            .height(160.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .border(
+                width = 2.dp,
+                color = borderColor,
+                shape = RoundedCornerShape(16.dp)
+            )
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        GlassWhite,
+                        GlassWhite.copy(alpha = 0.5f)
+                    )
+                )
+            )
+            .clickable(onClick = onClick)
+            .padding(12.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
+            // Actions Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        tint = PrimaryGreen,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = ErrorRed,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
             // Room Icon
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(
                         brush = Brush.linearGradient(
-                            colors = listOf(
-                                PrimaryGreen,
-                                PrimaryGreen.copy(alpha = 0.7f)
-                            )
+                            colors = if (room.isActive) {
+                                listOf(PrimaryGreen, PrimaryGreenDark)
+                            } else {
+                                listOf(Color.Gray, Color.Gray.copy(alpha = 0.7f))
+                            }
                         )
                     ),
                 contentAlignment = Alignment.Center
@@ -171,16 +260,17 @@ fun RoomCard(
                     imageVector = Icons.Default.MeetingRoom,
                     contentDescription = "Room",
                     tint = Color.White,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
             // Room Name
             Text(
                 text = room.name,
-                fontSize = 18.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary
+                color = TextPrimary,
+                maxLines = 1
             )
 
             // Capacity
@@ -191,20 +281,20 @@ fun RoomCard(
                     imageVector = Icons.Default.People,
                     contentDescription = "Capacity",
                     tint = TextSecondary,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(14.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "${room.capacity} kishi",
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     color = TextSecondary
                 )
             }
 
-            // Status
+            // Status Badge
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(10.dp))
                     .background(
                         if (room.isActive) {
                             PrimaryGreen.copy(alpha = 0.15f)
@@ -212,11 +302,11 @@ fun RoomCard(
                             Color.Gray.copy(alpha = 0.15f)
                         }
                     )
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .padding(horizontal = 10.dp, vertical = 3.dp)
             ) {
                 Text(
                     text = if (room.isActive) "Faol" else "Nofaol",
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     color = if (room.isActive) PrimaryGreen else Color.Gray
                 )
