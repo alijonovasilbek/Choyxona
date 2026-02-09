@@ -1,3 +1,5 @@
+// Bu fayl choyxona_android/app/src/main/java/uz/choyxona/app/data/repository/UserRepository.kt ga qo'shilishi kerak
+
 package uz.choyxona.app.data.repository
 
 import uz.choyxona.app.data.api.ApiClient

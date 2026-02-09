@@ -136,4 +136,25 @@ class MainViewModel(
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
+
+    fun deleteRoom(roomId: Int) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+
+            currentToken?.let { token ->
+                val result = roomRepository.deleteRoom(token, roomId)
+
+                if (result.isSuccess) {
+                    // O‘chirgandan keyin roomlarni qayta yuklaymiz
+                    loadRooms()
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.exceptionOrNull()?.message
+                    )
+                }
+            }
+        }
+    }
+
 }

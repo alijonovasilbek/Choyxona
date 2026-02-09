@@ -40,12 +40,21 @@ fun WeeklyBookingsScreen(
     onRefresh: () -> Unit,
     onBookingClick: (BookingResponse) -> Unit,
     onNavigateBack: () -> Unit,
-    onCreateBooking: () -> Unit
+    onCreateBooking: () -> Unit,
+    onEditBooking: (BookingResponse) -> Unit,
+    onDeleteBooking: (BookingResponse) -> Unit,
+    onUpdateStatus: (BookingResponse, BookingStatus, Double?, String?) -> Unit
 ) {
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
     var currentWeekStart by remember { mutableStateOf(
         LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     ) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showStatusDialog by remember { mutableStateOf(false) }
+    var selectedBooking by remember { mutableStateOf<BookingResponse?>(null) }
+    var selectedStatus by remember { mutableStateOf<BookingStatus?>(null) }
+    var totalAmount by remember { mutableStateOf("") }
+    var cancellationReason by remember { mutableStateOf("") }
 
     // Hafta kunlari uchun bronlarni guruhlash
     val weekBookings = remember(bookings, currentWeekStart) {
@@ -56,6 +65,155 @@ fun WeeklyBookingsScreen(
                 bookingDate == date
             }
         }
+    }
+
+    // Delete Dialog
+    if (showDeleteDialog && selectedBooking != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteDialog = false
+                selectedBooking = null
+            },
+            title = { Text("Bronni o'chirish") },
+            text = {
+                Text("${selectedBooking?.customerName} nomidagi bronni o'chirmoqchimisiz?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        selectedBooking?.let { onDeleteBooking(it) }
+                        showDeleteDialog = false
+                        selectedBooking = null
+                    }
+                ) {
+                    Text("O'chirish", color = ErrorRed)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        selectedBooking = null
+                    }
+                ) {
+                    Text("Bekor qilish")
+                }
+            }
+        )
+    }
+
+    // Status Update Dialog
+    if (showStatusDialog && selectedBooking != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showStatusDialog = false
+                selectedBooking = null
+                selectedStatus = null
+                totalAmount = ""
+                cancellationReason = ""
+            },
+            title = { Text("Bron holatini o'zgartirish") },
+            text = {
+                Column {
+                    Text(
+                        text = "Yangi holatni tanlang:",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    // Status options
+                    BookingStatus.values().forEach { status ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedStatus == status,
+                                onClick = { selectedStatus = status },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = PrimaryGreen
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(status.getDisplayName())
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Conditional fields based on status
+                    when (selectedStatus) {
+                        BookingStatus.SUCCESSFUL -> {
+                            OutlinedTextField(
+                                value = totalAmount,
+                                onValueChange = {
+                                    if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) {
+                                        totalAmount = it
+                                    }
+                                },
+                                label = { Text("Jami summa *") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                        }
+                        BookingStatus.CANCELLED -> {
+                            OutlinedTextField(
+                                value = cancellationReason,
+                                onValueChange = { cancellationReason = it },
+                                label = { Text("Bekor qilish sababi *") },
+                                modifier = Modifier.fillMaxWidth(),
+                                minLines = 2,
+                                maxLines = 3
+                            )
+                        }
+                        else -> {}
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        selectedStatus?.let { status ->
+                            val amount = when (status) {
+                                BookingStatus.SUCCESSFUL -> totalAmount.toDoubleOrNull()
+                                else -> null
+                            }
+                            val reason = when (status) {
+                                BookingStatus.CANCELLED -> cancellationReason.ifBlank { null }
+                                else -> null
+                            }
+
+                            selectedBooking?.let { booking ->
+                                onUpdateStatus(booking, status, amount, reason)
+                            }
+                        }
+                        showStatusDialog = false
+                        selectedBooking = null
+                        selectedStatus = null
+                        totalAmount = ""
+                        cancellationReason = ""
+                    },
+                    enabled = selectedStatus != null
+                ) {
+                    Text("Saqlash", color = PrimaryGreen)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showStatusDialog = false
+                        selectedBooking = null
+                        selectedStatus = null
+                        totalAmount = ""
+                        cancellationReason = ""
+                    }
+                ) {
+                    Text("Bekor qilish")
+                }
+            }
+        )
     }
 
     Box(
@@ -143,7 +301,19 @@ fun WeeklyBookingsScreen(
                     date = selectedDate!!,
                     bookings = weekBookings[selectedDate!!] ?: emptyList(),
                     onBack = { selectedDate = null },
-                    onBookingClick = onBookingClick
+                    onBookingClick = onBookingClick,
+                    onEditBooking = onEditBooking,
+                    onDeleteBooking = { booking ->
+                        selectedBooking = booking
+                        showDeleteDialog = true
+                    },
+                    onChangeStatus = { booking ->
+                        selectedBooking = booking
+                        selectedStatus = booking.status
+                        totalAmount = booking.totalAmount?.toString() ?: ""
+                        cancellationReason = booking.cancellationReason ?: ""
+                        showStatusDialog = true
+                    }
                 )
             }
         }
@@ -256,7 +426,6 @@ fun DayCard(
             verticalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxSize()
         ) {
-            // Kun nomi
             Text(
                 text = dayName,
                 fontSize = 14.sp,
@@ -265,7 +434,6 @@ fun DayCard(
                 textAlign = TextAlign.Center
             )
 
-            // Sana
             Text(
                 text = date.format(formatter),
                 fontSize = 12.sp,
@@ -275,7 +443,6 @@ fun DayCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Bronlar soni
             if (bookingsCount > 0) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -297,7 +464,6 @@ fun DayCard(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    // Status indicators
                     Row(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
@@ -357,7 +523,10 @@ fun DayBookingsView(
     date: LocalDate,
     bookings: List<BookingResponse>,
     onBack: () -> Unit,
-    onBookingClick: (BookingResponse) -> Unit
+    onBookingClick: (BookingResponse) -> Unit,
+    onEditBooking: (BookingResponse) -> Unit,
+    onDeleteBooking: (BookingResponse) -> Unit,
+    onChangeStatus: (BookingResponse) -> Unit
 ) {
     val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     val dayNames = mapOf(
@@ -405,14 +574,12 @@ fun DayBookingsView(
                     )
                 }
 
-                // Placeholder for alignment
                 Box(modifier = Modifier.size(48.dp))
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Bookings list
         if (bookings.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -442,7 +609,10 @@ fun DayBookingsView(
                 items(bookings.sortedBy { it.bookingTime }) { booking ->
                     DayBookingCard(
                         booking = booking,
-                        onClick = { onBookingClick(booking) }
+                        onClick = { onBookingClick(booking) },
+                        onEdit = { onEditBooking(booking) },
+                        onDelete = { onDeleteBooking(booking) },
+                        onChangeStatus = { onChangeStatus(booking) }
                     )
                 }
             }
@@ -453,7 +623,10 @@ fun DayBookingsView(
 @Composable
 fun DayBookingCard(
     booking: BookingResponse,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onChangeStatus: () -> Unit
 ) {
     val statusColor = when (booking.status) {
         BookingStatus.PENDING -> StatusPending
@@ -462,107 +635,159 @@ fun DayBookingCard(
     }
 
     GlassCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth(),
         onClick = null
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
-        ) {
-            // Vaqt
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.width(70.dp)
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
-                Text(
-                    text = booking.bookingTime.substring(0, 5), // HH:mm
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = PrimaryGreenDark
-                )
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(statusColor)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Ma'lumotlar
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = booking.customerName,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                // Time
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(70.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.MeetingRoom,
-                            contentDescription = "Room",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = booking.roomName,
-                            fontSize = 12.sp,
-                            color = TextSecondary
-                        )
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.People,
-                            contentDescription = "Guests",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "${booking.guestCount}",
-                            fontSize = 12.sp,
-                            color = TextSecondary
-                        )
-                    }
+                    Text(
+                        text = booking.bookingTime.substring(0, 5),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryGreenDark
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(statusColor)
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
-                Text(
-                    text = booking.foodDescription,
-                    fontSize = 12.sp,
-                    color = TextPrimary,
-                    maxLines = 2
-                )
+                // Details
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = booking.customerName,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.MeetingRoom,
+                                contentDescription = "Room",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = booking.roomName,
+                                fontSize = 12.sp,
+                                color = TextSecondary
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.People,
+                                contentDescription = "Guests",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "${booking.guestCount}",
+                                fontSize = 12.sp,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = booking.foodDescription,
+                        fontSize = 12.sp,
+                        color = TextPrimary,
+                        maxLines = 2
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Status badge
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(statusColor.copy(alpha = 0.15f))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = booking.status.getDisplayName(),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = statusColor
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Status badge
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(statusColor.copy(alpha = 0.15f))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            // Action buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = booking.status.getDisplayName(),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = statusColor
-                )
+                // Status change button
+                IconButton(
+                    onClick = onChangeStatus,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ChangeCircle,
+                        contentDescription = "Change Status",
+                        tint = PrimaryGreen,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                // Edit button
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        tint = PrimaryGreen,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                // Delete button
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = ErrorRed,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }

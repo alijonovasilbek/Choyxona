@@ -27,3 +27,7 @@ val StatusCancelled = Color(0xFFEF4444)
 val DividerColor = Color(0xFFE5E7EB)
 val ErrorRed = Color(0xFFDC2626)
 val WarningOrange = Color(0xFFF97316)
+
+// Card Border Colors
+val CardBorderGreen = Color(0xFF4ADE80).copy(alpha = 0.3f)
+val CardBorderLight = Color(0xFFE5E7EB)

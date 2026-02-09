@@ -13,8 +13,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import uz.choyxona.app.data.local.TokenManager
-import uz.choyxona.app.data.model.BookingResponse
-import uz.choyxona.app.data.model.RoomResponse
 import uz.choyxona.app.data.repository.BookingRepository
 import uz.choyxona.app.data.repository.ReportRepository
 import uz.choyxona.app.data.repository.RoomRepository
@@ -22,6 +20,8 @@ import uz.choyxona.app.ui.screen.*
 import uz.choyxona.app.ui.theme.ChoyxonaTheme
 import uz.choyxona.app.ui.viewmodel.AuthViewModel
 import uz.choyxona.app.ui.viewmodel.MainViewModel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 class MainActivity : ComponentActivity() {
     private lateinit var tokenManager: TokenManager
@@ -49,6 +49,8 @@ fun ChoyxonaApp(
     tokenManager: TokenManager
 ) {
     val navController = rememberNavController()
+    val scope = rememberCoroutineScope()
+
     val authViewModel: AuthViewModel = viewModel {
         AuthViewModel(tokenManager = tokenManager)
     }
@@ -86,7 +88,6 @@ fun ChoyxonaApp(
                 currentUser = uiState.currentUser,
                 stats = mainUiState.dashboardStats,
                 onNavigateToBookings = {
-                    // Haftalik kalendar ko'rinishiga o'tish
                     navController.navigate("weekly_bookings")
                 },
                 onNavigateToRooms = {
@@ -104,7 +105,7 @@ fun ChoyxonaApp(
             )
         }
 
-        // YANGI: Haftalik kalendar ko'rinishi
+        // Haftalik kalendar ko'rinishi
         composable("weekly_bookings") {
             WeeklyBookingsScreen(
                 bookings = mainUiState.bookings,
@@ -113,13 +114,46 @@ fun ChoyxonaApp(
                     mainViewModel.loadBookings()
                 },
                 onBookingClick = { booking ->
-                    // TODO: Navigate to booking details
+                    // TODO: Navigate to booking details if needed
                 },
                 onNavigateBack = {
                     navController.popBackStack()
                 },
                 onCreateBooking = {
                     // TODO: Navigate to create booking
+                },
+                onEditBooking = { booking ->
+                    // TODO: Navigate to edit booking screen
+                },
+                onDeleteBooking = { booking ->
+                    scope.launch {
+                        val repository = BookingRepository()
+                        val token = tokenManager.accessToken.first()
+                        if (token != null) {
+                            val result = repository.deleteBooking(token, booking.id)
+                            if (result.isSuccess) {
+                                mainViewModel.loadBookings()
+                            }
+                        }
+                    }
+                },
+                onUpdateStatus = { booking, status, totalAmount, cancellationReason ->
+                    scope.launch {
+                        val repository = BookingRepository()
+                        val token = tokenManager.accessToken.first()
+                        if (token != null) {
+                            val result = repository.updateBookingStatus(
+                                token = token,
+                                bookingId = booking.id,
+                                status = status,
+                                totalAmount = totalAmount,
+                                cancellationReason = cancellationReason
+                            )
+                            if (result.isSuccess) {
+                                mainViewModel.loadBookings()
+                            }
+                        }
+                    }
                 }
             )
         }
