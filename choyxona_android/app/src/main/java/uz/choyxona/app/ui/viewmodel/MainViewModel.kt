@@ -10,9 +10,11 @@ import kotlinx.coroutines.launch
 import uz.choyxona.app.data.local.TokenManager
 import uz.choyxona.app.data.model.BookingResponse
 import uz.choyxona.app.data.model.RoomResponse
+import uz.choyxona.app.data.model.UserResponse
 import uz.choyxona.app.data.repository.BookingRepository
 import uz.choyxona.app.data.repository.ReportRepository
 import uz.choyxona.app.data.repository.RoomRepository
+import uz.choyxona.app.data.repository.UserRepository
 import uz.choyxona.app.ui.screen.DashboardStats
 import uz.choyxona.app.ui.screen.ReportStats
 
@@ -21,6 +23,7 @@ data class MainUiState(
     val error: String? = null,
     val bookings: List<BookingResponse> = emptyList(),
     val rooms: List<RoomResponse> = emptyList(),
+    val users: List<UserResponse> = emptyList(),
     val dashboardStats: DashboardStats? = null,
     val reportStats: ReportStats? = null
 )
@@ -29,7 +32,8 @@ class MainViewModel(
     private val tokenManager: TokenManager,
     private val bookingRepository: BookingRepository = BookingRepository(),
     private val roomRepository: RoomRepository = RoomRepository(),
-    private val reportRepository: ReportRepository = ReportRepository()
+    private val reportRepository: ReportRepository = ReportRepository(),
+    private val userRepository: UserRepository = UserRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -53,6 +57,7 @@ class MainViewModel(
     fun loadData() {
         loadBookings()
         loadRooms()
+        loadUsers()
         loadStats()
     }
 
@@ -86,6 +91,27 @@ class MainViewModel(
                 if (result.isSuccess) {
                     _uiState.value = _uiState.value.copy(
                         rooms = result.getOrNull() ?: emptyList(),
+                        isLoading = false
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.exceptionOrNull()?.message
+                    )
+                }
+            }
+        }
+    }
+
+    fun loadUsers() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+
+            currentToken?.let { token ->
+                val result = userRepository.getAllUsers(token)
+                if (result.isSuccess) {
+                    _uiState.value = _uiState.value.copy(
+                        users = result.getOrNull() ?: emptyList(),
                         isLoading = false
                     )
                 } else {
@@ -145,7 +171,7 @@ class MainViewModel(
                 val result = roomRepository.deleteRoom(token, roomId)
 
                 if (result.isSuccess) {
-                    // O‘chirgandan keyin roomlarni qayta yuklaymiz
+                    // O'chirgandan keyin roomlarni qayta yuklaymiz
                     loadRooms()
                 } else {
                     _uiState.value = _uiState.value.copy(
@@ -156,5 +182,4 @@ class MainViewModel(
             }
         }
     }
-
 }

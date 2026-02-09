@@ -40,6 +40,7 @@ fun DashboardScreen(
     onNavigateToBookings: () -> Unit,
     onNavigateToRooms: () -> Unit,
     onNavigateToReports: () -> Unit,
+    onNavigateToUsers: () -> Unit,
     onLogout: () -> Unit
 ) {
     Box(
@@ -191,30 +192,72 @@ fun DashboardScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickActionButton(
-                    title = "Bronlar",
-                    icon = Icons.Default.Book,
-                    onClick = onNavigateToBookings,
-                    modifier = Modifier.weight(1f)
-                )
+            // Check if user is superadmin
+            val isSuperAdmin = currentUser?.roles?.contains("superadmin") == true
 
-                QuickActionButton(
-                    title = "Xonalar",
-                    icon = Icons.Default.MeetingRoom,
-                    onClick = onNavigateToRooms,
-                    modifier = Modifier.weight(1f)
-                )
+            if (isSuperAdmin) {
+                // 4 buttons for superadmin
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    item {
+                        QuickActionButton(
+                            title = "Bronlar",
+                            icon = Icons.Default.Book,
+                            onClick = onNavigateToBookings
+                        )
+                    }
+                    item {
+                        QuickActionButton(
+                            title = "Xonalar",
+                            icon = Icons.Default.MeetingRoom,
+                            onClick = onNavigateToRooms
+                        )
+                    }
+                    item {
+                        QuickActionButton(
+                            title = "Hisobotlar",
+                            icon = Icons.Default.Analytics,
+                            onClick = onNavigateToReports
+                        )
+                    }
+                    item {
+                        QuickActionButton(
+                            title = "Foydalanuvchilar",
+                            icon = Icons.Default.People,
+                            onClick = onNavigateToUsers
+                        )
+                    }
+                }
+            } else {
+                // 3 buttons for other users
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    QuickActionButton(
+                        title = "Bronlar",
+                        icon = Icons.Default.Book,
+                        onClick = onNavigateToBookings,
+                        modifier = Modifier.weight(1f)
+                    )
 
-                QuickActionButton(
-                    title = "Hisobotlar",
-                    icon = Icons.Default.Analytics,
-                    onClick = onNavigateToReports,
-                    modifier = Modifier.weight(1f)
-                )
+                    QuickActionButton(
+                        title = "Xonalar",
+                        icon = Icons.Default.MeetingRoom,
+                        onClick = onNavigateToRooms,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    QuickActionButton(
+                        title = "Hisobotlar",
+                        icon = Icons.Default.Analytics,
+                        onClick = onNavigateToReports,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }
