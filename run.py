@@ -9,6 +9,7 @@ from routers.rooms_router import router as rooms_router
 from routers.bookings_router import router as bookings_router
 from routers.reports_router import router as reports_router
 from routers.notifications_router import router as notifications_router
+from  routers.local_notification_router import router as local_notification_router
 
 # Import scheduler
 from services.scheduler import scheduler
@@ -74,7 +75,8 @@ app.include_router(users_router)
 app.include_router(rooms_router)
 app.include_router(bookings_router)
 app.include_router(reports_router)
-app.include_router(notifications_router)
+# app.include_router(notifications_router)
+app.include_router(local_notification_router)
 
 
 @app.get("/")
