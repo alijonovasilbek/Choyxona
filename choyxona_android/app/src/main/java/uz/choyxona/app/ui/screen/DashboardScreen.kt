@@ -218,16 +218,16 @@ fun DashboardScreen(
                     }
                     item {
                         QuickActionButton(
-                            title = "Hisobotlar",
-                            icon = Icons.Default.Analytics,
-                            onClick = onNavigateToReports
+                            title = "Userlar",
+                            icon = Icons.Default.People,
+                            onClick = onNavigateToUsers
                         )
                     }
                     item {
                         QuickActionButton(
-                            title = "Foydalanuvchilar",
-                            icon = Icons.Default.People,
-                            onClick = onNavigateToUsers
+                            title = "Hisobotlar",
+                            icon = Icons.Default.Analytics,
+                            onClick = onNavigateToReports
                         )
                     }
                 }

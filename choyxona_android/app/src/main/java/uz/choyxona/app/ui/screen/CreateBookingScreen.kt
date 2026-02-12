@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uz.choyxona.app.data.model.RoomResponse
@@ -54,6 +55,7 @@ fun CreateBookingScreen(
     var showRoomPicker by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    var phoneError by remember { mutableStateOf(false) }
 
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = System.currentTimeMillis()
@@ -62,6 +64,22 @@ fun CreateBookingScreen(
         initialHour = 12,
         initialMinute = 0
     )
+
+    // Telefon raqamini formatlash funksiyasi
+    val formatPhoneNumber: (String) -> String = { input ->
+        when {
+            input.startsWith("+998") -> input
+            input.startsWith("998") -> "+$input"
+            input.length == 9 -> "+998$input"
+            else -> input
+        }
+    }
+
+    // Telefon raqamini tekshirish
+    val isPhoneValid: (String) -> Boolean = { phone ->
+        val formatted = formatPhoneNumber(phone)
+        formatted.matches(Regex("^\\+998\\d{9}$"))
+    }
 
     Box(
         modifier = Modifier
@@ -212,12 +230,32 @@ fun CreateBookingScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    GlassTextField(
-                        value = customerPhone,
-                        onValueChange = { customerPhone = it },
-                        label = "Telefon raqami",
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    // Telefon raqami - TO'G'RILANDI
+                    Column {
+                        GlassTextField(
+                            value = customerPhone,
+                            onValueChange = {
+                                // Faqat raqam va + belgisini qabul qilish
+                                if (it.isEmpty() || it.matches(Regex("^[+]?[0-9]*$"))) {
+                                    customerPhone = it
+                                    phoneError = false
+                                }
+                            },
+                            label = "Telefon raqami",
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardType = KeyboardType.Phone,
+                            isError = phoneError,
+                            errorMessage = if (phoneError) "Noto'g'ri telefon formati" else ""
+                        )
+
+                        // Helper text
+                        Text(
+                            text = "Masalan: +998901234567 yoki 998901234567",
+                            fontSize = 12.sp,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -225,7 +263,8 @@ fun CreateBookingScreen(
                         value = guestCount,
                         onValueChange = { if (it.all { char -> char.isDigit() }) guestCount = it },
                         label = "Odamlar soni",
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardType = KeyboardType.Number
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -262,13 +301,21 @@ fun CreateBookingScreen(
                         onClick = {
                             selectedRoom?.let { room ->
                                 val count = guestCount.toIntOrNull() ?: 0
-                                if (count > 0) {
+
+                                // Telefon validatsiyasi - TO'G'RILANDI
+                                val formattedPhone = formatPhoneNumber(customerPhone)
+                                if (!formattedPhone.matches(Regex("^\\+998\\d{9}$"))) {
+                                    phoneError = true
+                                    return@GlassButton
+                                }
+
+                                if (count > 0 && customerName.isNotBlank() && foodDescription.isNotBlank()) {
                                     onCreateBooking(
                                         room.id,
                                         selectedDate.toString(),
                                         selectedTime.toString(),
                                         customerName,
-                                        customerPhone,
+                                        formattedPhone, // Formatlanigan telefon yuboriladi
                                         count,
                                         foodDescription,
                                         description.ifBlank { null }

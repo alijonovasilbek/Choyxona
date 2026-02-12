@@ -7,6 +7,8 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.*
 import uz.choyxona.app.BuildConfig
+import uz.choyxona.app.data.model.CheckResponse
+import uz.choyxona.app.data.model.UpcomingResponse
 
 import uz.choyxona.app.data.model.*
 import java.util.concurrent.TimeUnit
@@ -163,6 +165,18 @@ interface ReportService {
         @Header("Authorization") token: String,
         @Path("date_value") date: String
     ): Response<DailyReportResponse>
+}
+
+
+interface NotificationApi {
+
+    @GET("notifications/check")
+    suspend fun checkNotifications(): CheckResponse
+
+    @GET("notifications/upcoming")
+    suspend fun getUpcomingNotifications(
+        @Query("hours_before") hours: Int = 2
+    ): UpcomingResponse
 }
 
 // ==================== API CLIENT ====================

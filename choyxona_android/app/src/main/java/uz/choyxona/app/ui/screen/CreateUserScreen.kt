@@ -46,6 +46,22 @@ fun CreateUserScreen(
         "oshpaz" to "Oshpaz"
     )
 
+    // Telefon raqamini formatlash funksiyasi
+    val formatPhoneNumber: (String) -> String = { input ->
+        when {
+            input.startsWith("+998") -> input
+            input.startsWith("998") -> "+$input"
+            input.length == 9 -> "+998$input"
+            else -> input
+        }
+    }
+
+    // Telefon raqamini tekshirish
+    val isPhoneValid: (String) -> Boolean = { phoneNum ->
+        val formatted = formatPhoneNumber(phoneNum)
+        formatted.matches(Regex("^\\+998\\d{9}$"))
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -105,18 +121,32 @@ fun CreateUserScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    GlassTextField(
-                        value = phone,
-                        onValueChange = {
-                            phone = it
-                            phoneError = false
-                        },
-                        label = "Telefon raqami *",
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardType = KeyboardType.Phone,
-                        isError = phoneError,
-                        errorMessage = if (phoneError) "Telefon raqamini kiriting" else ""
-                    )
+                    // Telefon raqami - TO'G'RILANDI
+                    Column {
+                        GlassTextField(
+                            value = phone,
+                            onValueChange = {
+                                // Faqat raqam va + belgisini qabul qilish
+                                if (it.isEmpty() || it.matches(Regex("^[+]?[0-9]*$"))) {
+                                    phone = it
+                                    phoneError = false
+                                }
+                            },
+                            label = "Telefon raqami *",
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardType = KeyboardType.Phone,
+                            isError = phoneError,
+                            errorMessage = if (phoneError) "Noto'g'ri telefon formati" else ""
+                        )
+
+                        // Helper text
+                        Text(
+                            text = "Masalan: +998901234567 yoki 998901234567",
+                            fontSize = 12.sp,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -222,15 +252,18 @@ fun CreateUserScreen(
                         text = "Saqlash",
                         onClick = {
                             nameError = fullName.isBlank()
-                            phoneError = phone.isBlank()
                             usernameError = username.isBlank()
                             passwordError = password.length < 6
                             rolesError = selectedRoles.isEmpty()
 
+                            // Telefon validatsiyasi - TO'G'RILANDI
+                            val formattedPhone = formatPhoneNumber(phone)
+                            phoneError = !formattedPhone.matches(Regex("^\\+998\\d{9}$"))
+
                             if (!nameError && !phoneError && !usernameError && !passwordError && !rolesError) {
                                 onCreateUser(
                                     fullName.trim(),
-                                    phone.trim(),
+                                    formattedPhone, // Formatlanigan telefon yuboriladi
                                     username.trim(),
                                     password,
                                     telegramChatId.trim().ifBlank { null },
