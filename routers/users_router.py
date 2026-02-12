@@ -13,7 +13,7 @@ from typing import List
 router = APIRouter(prefix="/users", tags=["User Management"])
 
 
-@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
     user_data: UserCreate,
     current_user: dict = Depends(require_superadmin)
@@ -78,7 +78,7 @@ async def create_user(
     }
 
 
-@router.get("/", response_model=List[UserResponse])
+@router.get("", response_model=List[UserResponse])
 async def get_all_users(
     current_user: dict = Depends(require_superadmin)
 ):

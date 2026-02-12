@@ -9,7 +9,7 @@ from typing import List
 router = APIRouter(prefix="/rooms", tags=["Rooms Management"])
 
 
-@router.post("/", response_model=RoomResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=RoomResponse, status_code=status.HTTP_201_CREATED)
 async def create_room(
         room_data: RoomCreate,
         current_user: dict = Depends(require_superadmin)
@@ -51,7 +51,7 @@ async def create_room(
     }
 
 
-@router.get("/", response_model=List[RoomResponse])
+@router.get("", response_model=List[RoomResponse])
 async def get_all_rooms(
         include_inactive: bool = False,
         current_user: dict = Depends(get_current_user)

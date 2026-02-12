@@ -16,7 +16,7 @@ from datetime import date, datetime
 router = APIRouter(prefix="/bookings", tags=["Bookings Management"])
 
 
-@router.post("/", response_model=BookingResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=BookingResponse, status_code=status.HTTP_201_CREATED)
 async def create_booking(
         booking_data: BookingCreate,
         current_user: dict = Depends(require_admin)
@@ -105,7 +105,7 @@ async def create_booking(
     }
 
 
-@router.get("/", response_model=List[BookingResponse])
+@router.get("", response_model=List[BookingResponse])
 async def get_bookings(
         booking_date: Optional[date] = Query(None, description="Filter by date"),
         room_id: Optional[int] = Query(None, description="Filter by room"),
