@@ -14,9 +14,9 @@ class UserRole(str, enum.Enum):
 
 
 class BookingStatus(str, enum.Enum):
-    KUTILMOQDA = "kutilmoqda"  # Pending
-    MUVAFFAQIYATLI = "muvaffaqiyatli"  # Successful
-    BEKOR_QILINDI = "bekor_qilindi"  # Cancelled
+    KUTILMOQDA = "KUTILMOQDA"  # Pending
+    MUVAFFAQIYATLI = "MUVAFFAQIYATLI"  # Successful
+    BEKOR_QILINDI = "BEKOR_QILINDI"  # Cancelled
 
 
 # Users table

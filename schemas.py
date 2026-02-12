@@ -12,9 +12,9 @@ class UserRoleEnum(str, Enum):
 
 
 class BookingStatusEnum(str, Enum):
-    KUTILMOQDA = "kutilmoqda"
-    MUVAFFAQIYATLI = "muvaffaqiyatli"
-    BEKOR_QILINDI = "bekor_qilindi"
+    KUTILMOQDA = "KUTILMOQDA"
+    MUVAFFAQIYATLI = "MUVAFFAQIYATLI"
+    BEKOR_QILINDI = "BEKOR_QILINDI"
 
 
 # ==================== AUTH SCHEMAS ====================
