@@ -169,7 +169,6 @@ interface ReportService {
 
 
 interface NotificationApi {
-
     @GET("notifications/check")
     suspend fun checkNotifications(): CheckResponse
 
@@ -217,4 +216,5 @@ object ApiClient {
     val bookings: BookingService = retrofit.create(BookingService::class.java)
     val users: UserService = retrofit.create(UserService::class.java)
     val reports: ReportService = retrofit.create(ReportService::class.java)
+    val notifications: NotificationApi = retrofit.create(NotificationApi::class.java)
 }

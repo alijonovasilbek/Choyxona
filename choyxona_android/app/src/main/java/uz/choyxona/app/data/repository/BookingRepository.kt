@@ -1,5 +1,6 @@
 package uz.choyxona.app.data.repository
 
+import android.util.Log
 import uz.choyxona.app.data.api.ApiClient
 import uz.choyxona.app.data.model.*
 
@@ -81,9 +82,12 @@ class BookingRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.message()))
+                val errorMsg = response.errorBody()?.string() ?: response.message()
+                Log.e("BookingRepository", "Create booking failed: ${response.code()} - $errorMsg")
+                Result.failure(Exception("Xatolik: ${response.code()} - $errorMsg"))
             }
         } catch (e: Exception) {
+            Log.e("BookingRepository", "Create booking exception", e)
             Result.failure(e)
         }
     }
