@@ -310,10 +310,14 @@ fun CreateBookingScreen(
                                 }
 
                                 if (count > 0 && customerName.isNotBlank() && foodDescription.isNotBlank()) {
+                                    // To'g'ri formatlash: yyyy-MM-dd va HH:mm
+                                    val formattedDate = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                                    val formattedTime = selectedTime.format(DateTimeFormatter.ofPattern("HH:mm"))
+
                                     onCreateBooking(
                                         room.id,
-                                        selectedDate.toString(),
-                                        selectedTime.toString(),
+                                        formattedDate,
+                                        formattedTime,
                                         customerName,
                                         formattedPhone, // Formatlanigan telefon yuboriladi
                                         count,

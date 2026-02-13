@@ -29,7 +29,7 @@ android {
             buildConfigField(
                 "String",
                 "BASE_URL",
-                "\"https://choyxona.api.cognilabs.org/\""  // Oxirida / yo'q!
+                "\"https://choyxona.api.cognilabs.org\""  // Oxirida / yo'q!
             )
 
             isMinifyEnabled = false
@@ -40,7 +40,7 @@ android {
             buildConfigField(
                 "String",
                 "BASE_URL",
-                "\"https://choyxona.api.cognilabs.org/\""  // Yoki production URL
+                "\"https://choyxona.api.cognilabs.org\""  // Yoki production URL
             )
 
             isMinifyEnabled = true

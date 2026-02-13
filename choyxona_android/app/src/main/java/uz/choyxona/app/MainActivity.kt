@@ -133,9 +133,9 @@ fun ChoyxonaApp(
                 },
                 onDeleteBooking = { booking ->
                     scope.launch {
-                        val repository = BookingRepository()
                         val token = tokenManager.accessToken.first()
                         if (token != null) {
+                            val repository = BookingRepository()
                             val result = repository.deleteBooking(token, booking.id)
                             if (result.isSuccess) {
                                 mainViewModel.loadBookings()
@@ -145,9 +145,9 @@ fun ChoyxonaApp(
                 },
                 onUpdateStatus = { booking, status, totalAmount, cancellationReason ->
                     scope.launch {
-                        val repository = BookingRepository()
                         val token = tokenManager.accessToken.first()
                         if (token != null) {
+                            val repository = BookingRepository()
                             val result = repository.updateBookingStatus(
                                 token = token,
                                 bookingId = booking.id,
@@ -166,10 +166,15 @@ fun ChoyxonaApp(
 
         // Bron yaratish
         composable("create_booking") {
+            var isLoading by remember { mutableStateOf(false) }
+            var error by remember { mutableStateOf<String?>(null) }
+
             CreateBookingScreen(
                 rooms = mainUiState.rooms,
                 onCreateBooking = { roomId, date, time, customerName, customerPhone, guestCount, foodDescription, description ->
                     scope.launch {
+                        isLoading = true
+                        error = null
                         val repository = BookingRepository()
                         val token = tokenManager.accessToken.first()
                         if (token != null) {
@@ -184,16 +189,24 @@ fun ChoyxonaApp(
                                 foodDescription = foodDescription,
                                 description = description
                             )
+                            isLoading = false
                             if (result.isSuccess) {
                                 mainViewModel.loadBookings()
                                 navController.popBackStack()
+                            } else {
+                                error = result.exceptionOrNull()?.message ?: "Bron yaratib bo'lmadi"
                             }
+                        } else {
+                            isLoading = false
+                            error = "Avtorizatsiya xatosi"
                         }
                     }
                 },
                 onNavigateBack = {
                     navController.popBackStack()
-                }
+                },
+                isLoading = isLoading,
+                error = error
             )
         }
 
@@ -206,11 +219,16 @@ fun ChoyxonaApp(
             val booking = mainUiState.bookings.find { it.id == bookingId }
 
             if (booking != null) {
+                var isLoading by remember { mutableStateOf(false) }
+                var error by remember { mutableStateOf<String?>(null) }
+
                 EditBookingScreen(
                     booking = booking,
                     rooms = mainUiState.rooms,
                     onUpdateBooking = { roomId, date, time, customerName, customerPhone, guestCount, foodDescription, description ->
                         scope.launch {
+                            isLoading = true
+                            error = null
                             val repository = BookingRepository()
                             val token = tokenManager.accessToken.first()
                             if (token != null) {
@@ -226,16 +244,24 @@ fun ChoyxonaApp(
                                     foodDescription = foodDescription,
                                     description = description
                                 )
+                                isLoading = false
                                 if (result.isSuccess) {
                                     mainViewModel.loadBookings()
                                     navController.popBackStack()
+                                } else {
+                                    error = result.exceptionOrNull()?.message ?: "Bron yangilab bo'lmadi"
                                 }
+                            } else {
+                                isLoading = false
+                                error = "Avtorizatsiya xatosi"
                             }
                         }
                     },
                     onNavigateBack = {
                         navController.popBackStack()
-                    }
+                    },
+                    isLoading = isLoading,
+                    error = error
                 )
             }
         }

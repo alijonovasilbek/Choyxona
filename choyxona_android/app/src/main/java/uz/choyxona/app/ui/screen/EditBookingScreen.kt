@@ -262,10 +262,14 @@ fun EditBookingScreen(
                     GlassButton(
                         text = "Yangilash",
                         onClick = {
+                            // To'g'ri formatlash: yyyy-MM-dd va HH:mm
+                            val formattedDate = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                            val formattedTime = selectedTime.format(DateTimeFormatter.ofPattern("HH:mm"))
+
                             onUpdateBooking(
                                 selectedRoom?.id,
-                                if (selectedDate.toString() != booking.bookingDate) selectedDate.toString() else null,
-                                if (selectedTime.toString() != booking.bookingTime) selectedTime.toString() else null,
+                                if (formattedDate != booking.bookingDate) formattedDate else null,
+                                if (formattedTime != booking.bookingTime) formattedTime else null,
                                 if (customerName != booking.customerName) customerName else null,
                                 if (customerPhone != booking.customerPhone) customerPhone else null,
                                 guestCount.toIntOrNull()?.let { if (it != booking.guestCount) it else null },

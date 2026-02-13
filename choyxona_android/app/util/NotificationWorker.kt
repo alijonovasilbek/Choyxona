@@ -1,16 +1,18 @@
 package uz.choyxona.app.util
 
-
-
-val response = ApiClient.notifications.getUpcomingNotifications(
-    token = "Bearer $accessToken",
-    hoursBefore = 2
-)
-
-val workRequest = PeriodicWorkRequestBuilder<NotificationWorker>(
-    15, TimeUnit.HOURS,
-    5, TimeUnit.MINUTES
-)
+import android.content.Context
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.work.CoroutineWorker
+import androidx.work.WorkerParameters
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import uz.choyxona.app.R
+import uz.choyxona.app.data.api.ApiClient
+import uz.choyxona.app.data.model.CheckResponse
+import uz.choyxona.app.data.model.UpcomingResponse
+import java.util.concurrent.TimeUnit
 
 class NotificationWorker(
     context: Context,
@@ -20,37 +22,50 @@ class NotificationWorker(
     override suspend fun doWork(): Result {
         Log.d("NotificationWorker", "🔔 Checking notifications")
 
-        try {
-            // 1. /notifications/check
-            val hasNotifications = ApiClient.api.checkNotifications()
+        return withContext(Dispatchers.IO) {
+            try {
+                // 1. /notifications/check
+                val hasNotifications: CheckResponse = ApiClient.notifications.checkNotifications()
 
-            if (hasNotifications.has_notifications) {
-                // 2. /notifications/upcoming
-                val response = ApiClient.api.getUpcomingNotifications()
+                if (hasNotifications.has_notifications) {
+                    Log.d("NotificationWorker", "📬 Found ${hasNotifications.count} notifications")
 
-                showNotification(response.count)
+                    // 2. /notifications/upcoming
+                    val response: UpcomingResponse = ApiClient.notifications.getUpcomingNotifications(hoursBefore = 2)
+
+                    showNotification(response.count)
+                } else {
+                    Log.d("NotificationWorker", "✅ No notifications")
+                }
+
+                Result.success()
+            } catch (e: Exception) {
+                Log.e("NotificationWorker", "❌ Error checking notifications", e)
+                Result.retry()
             }
-
-            return Result.success()
-        } catch (e: Exception) {
-            Log.e("NotificationWorker", "❌ Error", e)
-            return Result.retry()
         }
     }
 
     private fun showNotification(count: Int) {
-        val notification = NotificationCompat.Builder(
-            applicationContext,
-            "booking_notifications"
-        )
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Upcoming bookings")
-            .setContentText("You have $count upcoming bookings")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .build()
+        try {
+            val notification = NotificationCompat.Builder(
+                applicationContext,
+                "booking_notifications"
+            )
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setContentTitle("Tez orada keladigan bronlar")
+                .setContentText("Sizda $count ta tez orada keladigan bronlar bor")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .build()
 
-        NotificationManagerCompat
-            .from(applicationContext)
-            .notify(1001, notification)
+            NotificationManagerCompat
+                .from(applicationContext)
+                .notify(1001, notification)
+
+            Log.d("NotificationWorker", "📢 Notification shown: $count bookings")
+        } catch (e: Exception) {
+            Log.e("NotificationWorker", "❌ Error showing notification", e)
+        }
     }
 }
