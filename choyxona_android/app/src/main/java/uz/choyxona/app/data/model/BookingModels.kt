@@ -89,13 +89,13 @@ data class BookingStatusUpdateRequest(
 )
 
 enum class BookingStatus {
-    @SerializedName("kutilmoqda")
+    @SerializedName("KUTILMOQDA")
     PENDING,
 
-    @SerializedName("muvaffaqiyatli")
+    @SerializedName("MUVAFFAQIYATLI")
     SUCCESSFUL,
 
-    @SerializedName("bekor_qilindi")
+    @SerializedName("BEKOR_QILINDI")
     CANCELLED
 }
 

@@ -191,7 +191,7 @@ fun ChoyxonaApp(
                             )
                             isLoading = false
                             if (result.isSuccess) {
-                                mainViewModel.loadBookings()
+                                mainViewModel.loadData()  // TO'G'RILANDI: Barcha ma'lumotni qayta yuklash
                                 navController.popBackStack()
                             } else {
                                 error = result.exceptionOrNull()?.message ?: "Bron yaratib bo'lmadi"

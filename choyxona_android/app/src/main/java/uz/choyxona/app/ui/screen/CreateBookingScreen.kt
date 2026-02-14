@@ -24,6 +24,7 @@ import uz.choyxona.app.ui.theme.*
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +66,19 @@ fun CreateBookingScreen(
         initialMinute = 0
     )
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // Show error snackbar when error changes
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(
+                message = it,
+                duration = SnackbarDuration.Long
+            )
+        }
+    }
+
     // Telefon raqamini formatlash funksiyasi
     val formatPhoneNumber: (String) -> String = { input ->
         when {
@@ -81,345 +95,374 @@ fun CreateBookingScreen(
         formatted.matches(Regex("^\\+998\\d{9}$"))
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        BackgroundLight,
-                        Color.White
-                    )
-                )
-            )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            // Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onNavigateBack) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Orqaga",
-                        tint = PrimaryGreen
+    Scaffold(
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                snackbar = { data ->
+                    Snackbar(
+                        snackbarData = data,
+                        containerColor = ErrorRed,
+                        contentColor = Color.White
                     )
                 }
-
-                Text(
-                    text = "Bron yaratish",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
+            )
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            BackgroundLight,
+                            Color.White
+                        )
+                    )
                 )
-
-                Spacer(modifier = Modifier.size(48.dp))
-            }
-
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp)
             ) {
-                LiquidGlassCard {
-                    // Xona tanlash
+                // Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Orqaga",
+                            tint = PrimaryGreen
+                        )
+                    }
+
                     Text(
-                        text = "Xona",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = TextSecondary
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { showRoomPicker = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = if (selectedRoom != null) PrimaryGreen else TextSecondary
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MeetingRoom,
-                            contentDescription = null
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = selectedRoom?.name ?: "Xonani tanlang",
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = null
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Sana va vaqt
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Sana",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = TextSecondary
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            OutlinedButton(
-                                onClick = { showDatePicker = true },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CalendarMonth,
-                                    contentDescription = null,
-                                    tint = PrimaryGreen
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = selectedDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Vaqt",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = TextSecondary
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            OutlinedButton(
-                                onClick = { showTimePicker = true },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.AccessTime,
-                                    contentDescription = null,
-                                    tint = PrimaryGreen
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = selectedTime.format(DateTimeFormatter.ofPattern("HH:mm")),
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Mijoz ma'lumotlari
-                    GlassTextField(
-                        value = customerName,
-                        onValueChange = { customerName = it },
-                        label = "Mijoz ismi",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Telefon raqami - TO'G'RILANDI
-                    Column {
-                        GlassTextField(
-                            value = customerPhone,
-                            onValueChange = {
-                                // Faqat raqam va + belgisini qabul qilish
-                                if (it.isEmpty() || it.matches(Regex("^[+]?[0-9]*$"))) {
-                                    customerPhone = it
-                                    phoneError = false
-                                }
-                            },
-                            label = "Telefon raqami",
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardType = KeyboardType.Phone,
-                            isError = phoneError,
-                            errorMessage = if (phoneError) "Noto'g'ri telefon formati" else ""
-                        )
-
-                        // Helper text
-                        Text(
-                            text = "Masalan: +998901234567 yoki 998901234567",
-                            fontSize = 12.sp,
-                            color = TextSecondary,
-                            modifier = Modifier.padding(start = 8.dp, top = 4.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    GlassTextField(
-                        value = guestCount,
-                        onValueChange = { if (it.all { char -> char.isDigit() }) guestCount = it },
-                        label = "Odamlar soni",
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardType = KeyboardType.Number
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    GlassTextField(
-                        value = foodDescription,
-                        onValueChange = { foodDescription = it },
-                        label = "Ovqat tavsifi",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    GlassTextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        label = "Qo'shimcha ma'lumot (ixtiyoriy)",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    if (error != null) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = error,
-                            color = ErrorRed,
-                            fontSize = 14.sp
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    GlassButton(
                         text = "Bron yaratish",
-                        onClick = {
-                            selectedRoom?.let { room ->
-                                val count = guestCount.toIntOrNull() ?: 0
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
 
-                                // Telefon validatsiyasi - TO'G'RILANDI
-                                val formattedPhone = formatPhoneNumber(customerPhone)
-                                if (!formattedPhone.matches(Regex("^\\+998\\d{9}$"))) {
-                                    phoneError = true
-                                    return@GlassButton
-                                }
+                    Spacer(modifier = Modifier.size(48.dp))
+                }
 
-                                if (count > 0 && customerName.isNotBlank() && foodDescription.isNotBlank()) {
-                                    // To'g'ri formatlash: yyyy-MM-dd va HH:mm
-                                    val formattedDate = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
-                                    val formattedTime = selectedTime.format(DateTimeFormatter.ofPattern("HH:mm"))
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    LiquidGlassCard {
+                        // Xona tanlash
+                        Text(
+                            text = "Xona",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { showRoomPicker = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = if (selectedRoom != null) PrimaryGreen else TextSecondary
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MeetingRoom,
+                                contentDescription = null
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = selectedRoom?.name ?: "Xonani tanlang",
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = null
+                            )
+                        }
 
-                                    onCreateBooking(
-                                        room.id,
-                                        formattedDate,
-                                        formattedTime,
-                                        customerName,
-                                        formattedPhone, // Formatlanigan telefon yuboriladi
-                                        count,
-                                        foodDescription,
-                                        description.ifBlank { null }
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Sana va vaqt
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Sana",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = TextSecondary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedButton(
+                                    onClick = { showDatePicker = true },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CalendarMonth,
+                                        contentDescription = null,
+                                        tint = PrimaryGreen
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = selectedDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
+                                        fontSize = 12.sp
                                     )
                                 }
                             }
-                        },
-                        enabled = selectedRoom != null &&
-                                customerName.isNotBlank() &&
-                                customerPhone.isNotBlank() &&
-                                guestCount.toIntOrNull() != null &&
-                                foodDescription.isNotBlank() &&
-                                !isLoading,
-                        isLoading = isLoading
-                    )
-                }
-            }
-        }
 
-        // Room Picker Dialog
-        if (showRoomPicker) {
-            AlertDialog(
-                onDismissRequest = { showRoomPicker = false },
-                title = { Text("Xonani tanlang") },
-                text = {
-                    Column {
-                        rooms.filter { it.isActive }.forEach { room ->
-                            OutlinedButton(
-                                onClick = {
-                                    selectedRoom = room
-                                    showRoomPicker = false
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                            ) {
-                                Icon(Icons.Default.MeetingRoom, null)
-                                Spacer(Modifier.width(8.dp))
-                                Text(room.name, modifier = Modifier.weight(1f))
-                                Text("${room.capacity} kishi", fontSize = 12.sp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Vaqt",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = TextSecondary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedButton(
+                                    onClick = { showTimePicker = true },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AccessTime,
+                                        contentDescription = null,
+                                        tint = PrimaryGreen
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = selectedTime.format(DateTimeFormatter.ofPattern("HH:mm")),
+                                        fontSize = 12.sp
+                                    )
+                                }
                             }
                         }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showRoomPicker = false }) {
-                        Text("Yopish")
-                    }
-                }
-            )
-        }
 
-        // Date Picker Dialog
-        if (showDatePicker) {
-            DatePickerDialog(
-                onDismissRequest = { showDatePicker = false },
-                confirmButton = {
-                    TextButton(onClick = {
-                        datePickerState.selectedDateMillis?.let { millis ->
-                            selectedDate = LocalDate.ofEpochDay(millis / (24 * 60 * 60 * 1000))
-                        }
-                        showDatePicker = false
-                    }) {
-                        Text("OK")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDatePicker = false }) {
-                        Text("Bekor qilish")
-                    }
-                }
-            ) {
-                DatePicker(state = datePickerState)
-            }
-        }
+                        Spacer(modifier = Modifier.height(20.dp))
 
-        // Time Picker Dialog
-        if (showTimePicker) {
-            AlertDialog(
-                onDismissRequest = { showTimePicker = false },
-                confirmButton = {
-                    TextButton(onClick = {
-                        selectedTime = LocalTime.of(
-                            timePickerState.hour,
-                            timePickerState.minute
+                        // Mijoz ma'lumotlari
+                        GlassTextField(
+                            value = customerName,
+                            onValueChange = { customerName = it },
+                            label = "Mijoz ismi",
+                            modifier = Modifier.fillMaxWidth()
                         )
-                        showTimePicker = false
-                    }) {
-                        Text("OK")
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Telefon raqami
+                        Column {
+                            GlassTextField(
+                                value = customerPhone,
+                                onValueChange = {
+                                    // Faqat raqam va + belgisini qabul qilish
+                                    if (it.isEmpty() || it.matches(Regex("^[+]?[0-9]*$"))) {
+                                        customerPhone = it
+                                        phoneError = false
+                                    }
+                                },
+                                label = "Telefon raqami",
+                                modifier = Modifier.fillMaxWidth(),
+                                keyboardType = KeyboardType.Phone,
+                                isError = phoneError,
+                                errorMessage = if (phoneError) "Noto'g'ri telefon formati" else ""
+                            )
+
+                            // Helper text
+                            Text(
+                                text = "Masalan: +998901234567 yoki 998901234567",
+                                fontSize = 12.sp,
+                                color = TextSecondary,
+                                modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        GlassTextField(
+                            value = guestCount,
+                            onValueChange = { if (it.all { char -> char.isDigit() }) guestCount = it },
+                            label = "Odamlar soni",
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardType = KeyboardType.Number
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        GlassTextField(
+                            value = foodDescription,
+                            onValueChange = { foodDescription = it },
+                            label = "Ovqat tavsifi",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        GlassTextField(
+                            value = description,
+                            onValueChange = { description = it },
+                            label = "Qo'shimcha ma'lumot (ixtiyoriy)",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        GlassButton(
+                            text = "Bron yaratish",
+                            onClick = {
+                                selectedRoom?.let { room ->
+                                    val count = guestCount.toIntOrNull() ?: 0
+
+                                    // Telefon validatsiyasi
+                                    val formattedPhone = formatPhoneNumber(customerPhone)
+                                    if (!formattedPhone.matches(Regex("^\\+998\\d{9}$"))) {
+                                        phoneError = true
+                                        return@GlassButton
+                                    }
+
+                                    // Validatsiyalar
+                                    when {
+                                        customerName.isBlank() -> {
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("Mijoz ismini kiriting")
+                                            }
+                                        }
+                                        count <= 0 -> {
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("Odamlar sonini kiriting")
+                                            }
+                                        }
+                                        foodDescription.isBlank() -> {
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("Ovqat tavsifini kiriting")
+                                            }
+                                        }
+                                        else -> {
+                                            // To'g'ri formatlash: yyyy-MM-dd va HH:mm
+                                            val formattedDate = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                                            val formattedTime = selectedTime.format(DateTimeFormatter.ofPattern("HH:mm"))
+
+                                            onCreateBooking(
+                                                room.id,
+                                                formattedDate,
+                                                formattedTime,
+                                                customerName,
+                                                formattedPhone,
+                                                count,
+                                                foodDescription,
+                                                description.ifBlank { null }
+                                            )
+                                        }
+                                    }
+                                } ?: run {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Xonani tanlang")
+                                    }
+                                }
+                            },
+                            enabled = selectedRoom != null &&
+                                    customerName.isNotBlank() &&
+                                    customerPhone.isNotBlank() &&
+                                    guestCount.toIntOrNull() != null &&
+                                    foodDescription.isNotBlank() &&
+                                    !isLoading,
+                            isLoading = isLoading
+                        )
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showTimePicker = false }) {
-                        Text("Bekor qilish")
-                    }
-                },
-                text = {
-                    TimePicker(state = timePickerState)
                 }
-            )
+            }
+
+            // Room Picker Dialog
+            if (showRoomPicker) {
+                AlertDialog(
+                    onDismissRequest = { showRoomPicker = false },
+                    title = { Text("Xonani tanlang") },
+                    text = {
+                        Column {
+                            rooms.filter { it.isActive }.forEach { room ->
+                                OutlinedButton(
+                                    onClick = {
+                                        selectedRoom = room
+                                        showRoomPicker = false
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                ) {
+                                    Icon(Icons.Default.MeetingRoom, null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(room.name, modifier = Modifier.weight(1f), color = TextPrimary)
+                                    Text("${room.capacity} kishi", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showRoomPicker = false }) {
+                            Text("Yopish")
+                        }
+                    }
+                )
+            }
+
+            // Date Picker Dialog
+            if (showDatePicker) {
+                DatePickerDialog(
+                    onDismissRequest = { showDatePicker = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            datePickerState.selectedDateMillis?.let { millis ->
+                                selectedDate = LocalDate.ofEpochDay(millis / (24 * 60 * 60 * 1000))
+                            }
+                            showDatePicker = false
+                        }) {
+                            Text("OK")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDatePicker = false }) {
+                            Text("Bekor qilish")
+                        }
+                    }
+                ) {
+                    DatePicker(state = datePickerState)
+                }
+            }
+
+            // Time Picker Dialog
+            if (showTimePicker) {
+                AlertDialog(
+                    onDismissRequest = { showTimePicker = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            selectedTime = LocalTime.of(
+                                timePickerState.hour,
+                                timePickerState.minute
+                            )
+                            showTimePicker = false
+                        }) {
+                            Text("OK")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showTimePicker = false }) {
+                            Text("Bekor qilish")
+                        }
+                    },
+                    text = {
+                        TimePicker(state = timePickerState)
+                    }
+                )
+            }
         }
     }
 }

@@ -268,13 +268,16 @@ fun WeeklyBookingsScreen(
                 currentWeekStart = currentWeekStart,
                 onPreviousWeek = {
                     currentWeekStart = currentWeekStart.minusWeeks(1)
+                    selectedDate = null // Reset selected date when changing weeks
                 },
                 onNextWeek = {
                     currentWeekStart = currentWeekStart.plusWeeks(1)
+                    selectedDate = null // Reset selected date when changing weeks
                 },
                 onToday = {
                     currentWeekStart = LocalDate.now()
                         .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                    selectedDate = null // Reset selected date
                 }
             )
 
@@ -350,7 +353,7 @@ fun WeekNavigator(
             ) {
                 Text(
                     text = "${currentWeekStart.format(formatter)} — ${weekEnd.format(formatter)}",
-                    fontSize = 16.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = PrimaryGreenDark
                 )
@@ -383,7 +386,7 @@ fun WeekCalendarView(
     val dayNames = listOf("Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba")
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
+        columns = GridCells.Fixed(2),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize()
@@ -416,7 +419,7 @@ fun DayCard(
     GlassCard(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f)
+            .height(140.dp)  // Kichikroq qilindi (eski 160dp edi)
             .clickable(onClick = onClick),
         onClick = null,
         backgroundColor = if (isToday) PrimaryGreen.copy(alpha = 0.1f) else GlassWhite
@@ -428,7 +431,7 @@ fun DayCard(
         ) {
             Text(
                 text = dayName,
-                fontSize = 14.sp,
+                fontSize = 13.sp,  // Kichikroq qilindi (eski 14sp edi)
                 fontWeight = FontWeight.Bold,
                 color = if (isToday) PrimaryGreenDark else TextPrimary,
                 textAlign = TextAlign.Center
@@ -436,12 +439,12 @@ fun DayCard(
 
             Text(
                 text = date.format(formatter),
-                fontSize = 12.sp,
+                fontSize = 11.sp,  // Kichikroq qilindi (eski 12sp edi)
                 color = TextSecondary,
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             if (bookingsCount > 0) {
                 Column(
@@ -449,14 +452,14 @@ fun DayCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(20.dp))
+                            .size(36.dp)  // Kichikroq qilindi (eski 40dp edi)
+                            .clip(RoundedCornerShape(18.dp))
                             .background(PrimaryGreen.copy(alpha = 0.2f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = bookingsCount.toString(),
-                            fontSize = 18.sp,
+                            fontSize = 16.sp,  // Kichikroq qilindi (eski 18sp edi)
                             fontWeight = FontWeight.Bold,
                             color = PrimaryGreenDark
                         )
@@ -628,7 +631,6 @@ fun DayBookingCard(
     onDelete: () -> Unit,
     onChangeStatus: () -> Unit
 ) {
-    // Safely handle null status - default to PENDING if null
     val currentStatus = booking.status ?: BookingStatus.PENDING
     val statusColor = when (currentStatus) {
         BookingStatus.PENDING -> StatusPending

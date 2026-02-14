@@ -82,13 +82,19 @@ class BookingRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                val errorMsg = response.errorBody()?.string() ?: response.message()
-                Log.e("BookingRepository", "Create booking failed: ${response.code()} - $errorMsg")
-                Result.failure(Exception("Xatolik: ${response.code()} - $errorMsg"))
+                val errorMsg = when (response.code()) {
+                    400 -> "Noto'g'ri ma'lumot kiritildi"
+                    401 -> "Avtorizatsiya xatosi"
+                    404 -> "Xona topilmadi"
+                    422 -> "Ma'lumotlar formati noto'g'ri"
+                    else -> "Xatolik yuz berdi: ${response.code()}"
+                }
+                Log.e("BookingRepository", "Create booking failed: ${response.code()} - ${response.errorBody()?.string()}")
+                Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
             Log.e("BookingRepository", "Create booking exception", e)
-            Result.failure(e)
+            Result.failure(Exception("Tarmoq xatosi: ${e.message}"))
         }
     }
 
@@ -145,10 +151,18 @@ class BookingRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.message()))
+                val errorMsg = when (response.code()) {
+                    400 -> "Noto'g'ri ma'lumot"
+                    404 -> "Bron topilmadi"
+                    422 -> "Ma'lumot formati noto'g'ri"
+                    else -> "Xatolik: ${response.code()}"
+                }
+                Log.e("BookingRepository", "Status update failed: ${response.code()}")
+                Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Log.e("BookingRepository", "Status update exception", e)
+            Result.failure(Exception("Tarmoq xatosi"))
         }
     }
 
