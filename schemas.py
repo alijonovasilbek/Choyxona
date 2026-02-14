@@ -34,6 +34,19 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    user_info: dict  # User ma'lumotlari
+
+
+class UserInfoResponse(BaseModel):
+    """Login qilgandan keyin qaytariladigan user ma'lumotlari"""
+    id: int
+    full_name: str
+    username: str
+    roles: List[UserRoleEnum]
+    user_filial_id: Optional[int] = None  # Oshpaz uchun biriktirilgan filial
+    active_filial_id: Optional[int] = None  # Oshpaz uchun o'z filiali, Admin uchun None
+    available_filials: List[dict]  # Barcha dostup filiallar
+    is_oshpaz: bool  # Oshpazmi yoki yo'qmi
 
 
 class UserResponse(BaseModel):
@@ -90,9 +103,8 @@ class UserUpdate(BaseModel):
 # ==================== ROOM SCHEMAS ====================
 class RoomCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    filial_id: int  # Qaysi filial
+    filial_id: int  # Qaysi filial (Admin/Superadmin qo'shganda majburiy)
     description: Optional[str] = None
-
 
 
 class RoomUpdate(BaseModel):
@@ -106,6 +118,7 @@ class RoomResponse(BaseModel):
     id: int
     name: str
     filial_id: int
+    filial_name: Optional[str] = None
     description: Optional[str] = None
     is_active: bool
     created_at: datetime
@@ -129,12 +142,12 @@ class BookingStatusUpdate(BaseModel):
     status: BookingStatusEnum
 
 
-
 class BookingResponse(BaseModel):
     id: int
     room_id: int
     room_name: str
     filial_id: int
+    filial_name: Optional[str] = None
     booking_date: date
     description: Optional[str] = None
     status: BookingStatusEnum

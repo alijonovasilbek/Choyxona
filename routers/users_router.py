@@ -15,13 +15,15 @@ router = APIRouter(prefix="/users", tags=["User Management"])
 
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
-    user_data: UserCreate,
-    current_user: dict = Depends(require_admin)
+        user_data: UserCreate,
+        current_user: dict = Depends(require_admin)
 ):
     """
     Create new user (Admin or Oshpaz).
     ADMIN and SUPERADMIN can create users.
-    Admins can create users for any filial.
+
+    - Oshpaz must have filial_id
+    - Admin/Superadmin don't need filial_id
     """
     # Check if username exists
     existing_user_query = select(users).where(users.c.username == user_data.username)
@@ -41,7 +43,21 @@ async def create_user(
             detail="Phone number already registered"
         )
 
-    # If filial_id is provided, check if it exists (for oshpaz)
+    # Check if user is Oshpaz only
+    is_oshpaz_only = (
+            UserRole.OSHPAZ in user_data.roles and
+            UserRole.ADMIN not in user_data.roles and
+            UserRole.SUPERADMIN not in user_data.roles
+    )
+
+    # Oshpaz must have filial_id
+    if is_oshpaz_only and not user_data.filial_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Oshpaz must be assigned to a filial"
+        )
+
+    # If filial_id is provided, check if it exists
     if user_data.filial_id:
         filial_query = select(filials).where(filials.c.id == user_data.filial_id)
         filial = await database.fetch_one(filial_query)
@@ -91,6 +107,7 @@ async def create_user(
         "phone": created_user['phone'],
         "username": created_user['username'],
         "filial_id": created_user['filial_id'],
+        "filial_name": filial_name,
         "is_active": created_user['is_active'],
         "roles": user_data.roles,
         "created_at": created_user['created_at']
@@ -99,7 +116,7 @@ async def create_user(
 
 @router.get("", response_model=List[UserResponse])
 async def get_all_users(
-    current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin)
 ):
     """
     Get all users.
@@ -130,6 +147,7 @@ async def get_all_users(
             "phone": user['phone'],
             "username": user['username'],
             "filial_id": user['filial_id'],
+            "filial_name": filial_name,
             "is_active": user['is_active'],
             "roles": user_roles_list,
             "created_at": user['created_at']
@@ -140,8 +158,8 @@ async def get_all_users(
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
-    user_id: int,
-    current_user: dict = Depends(require_admin)
+        user_id: int,
+        current_user: dict = Depends(require_admin)
 ):
     """
     Get user by ID.
@@ -175,6 +193,7 @@ async def get_user(
         "phone": user['phone'],
         "username": user['username'],
         "filial_id": user['filial_id'],
+        "filial_name": filial_name,
         "is_active": user['is_active'],
         "roles": user_roles_list,
         "created_at": user['created_at']
@@ -183,9 +202,9 @@ async def get_user(
 
 @router.put("/{user_id}", response_model=UserResponse)
 async def update_user(
-    user_id: int,
-    user_data: UserUpdate,
-    current_user: dict = Depends(require_admin)
+        user_id: int,
+        user_data: UserUpdate,
+        current_user: dict = Depends(require_admin)
 ):
     """
     Update user.
@@ -217,8 +236,7 @@ async def update_user(
                 detail="Phone number already registered"
             )
         update_data['phone'] = user_data.phone
-    if user_data.telegram_chat_id is not None:
-        update_data['telegram_chat_id'] = user_data.telegram_chat_id
+
     if user_data.filial_id is not None:
         # Check if filial exists
         if user_data.filial_id:
@@ -230,6 +248,7 @@ async def update_user(
                     detail="Filial not found"
                 )
         update_data['filial_id'] = user_data.filial_id
+
     if user_data.is_active is not None:
         update_data['is_active'] = user_data.is_active
 
@@ -240,6 +259,22 @@ async def update_user(
 
     # Update roles if provided
     if user_data.roles is not None:
+        # Check if Oshpaz only and has filial_id
+        is_oshpaz_only = (
+                UserRole.OSHPAZ in user_data.roles and
+                UserRole.ADMIN not in user_data.roles and
+                UserRole.SUPERADMIN not in user_data.roles
+        )
+
+        # Get current filial_id (either from update_data or existing user)
+        current_filial_id = update_data.get('filial_id', user['filial_id'])
+
+        if is_oshpaz_only and not current_filial_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Oshpaz must be assigned to a filial"
+            )
+
         # Delete existing roles
         delete_roles_query = delete(user_roles).where(user_roles.c.user_id == user_id)
         await database.execute(delete_roles_query)
@@ -272,6 +307,7 @@ async def update_user(
         "phone": updated_user['phone'],
         "username": updated_user['username'],
         "filial_id": updated_user['filial_id'],
+        "filial_name": filial_name,
         "is_active": updated_user['is_active'],
         "roles": user_roles_list,
         "created_at": updated_user['created_at']
@@ -280,8 +316,8 @@ async def update_user(
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
-    user_id: int,
-    current_user: dict = Depends(require_admin)
+        user_id: int,
+        current_user: dict = Depends(require_admin)
 ):
     """
     Delete user.

@@ -13,24 +13,29 @@ router = APIRouter(prefix="/reports", tags=["Reports & Analytics"])
 
 @router.get("/stats", response_model=BookingStatsResponse)
 async def get_booking_stats(
-        filial_id: Optional[int] = Query(None, description="Filter by filial"),
         date_from: Optional[date] = Query(None, description="Start date for filter"),
         date_to: Optional[date] = Query(None, description="End date for filter"),
         current_user: dict = Depends(require_admin)
 ):
     """
-    Get booking statistics.
+    Get booking statistics for the active filial.
     Only ADMIN and SUPERADMIN can view statistics.
+    Automatically filtered by active_filial_id.
 
     Returns:
     - Total bookings count
     - Count by status (kutilmoqda, muvaffaqiyatli, bekor_qilindi)
     """
-    # Build query conditions
-    conditions = []
+    active_filial_id = current_user.get('active_filial_id')
 
-    if filial_id:
-        conditions.append(rooms.c.filial_id == filial_id)
+    if not active_filial_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active filial selected"
+        )
+
+    # Build query conditions - always filter by active filial
+    conditions = [rooms.c.filial_id == active_filial_id]
 
     if date_from:
         conditions.append(bookings.c.booking_date >= date_from)
@@ -40,31 +45,29 @@ async def get_booking_stats(
     # Get total bookings count
     total_query = select(func.count()).select_from(
         bookings.join(rooms, bookings.c.room_id == rooms.c.id)
-    )
-    if conditions:
-        total_query = total_query.where(and_(*conditions))
+    ).where(and_(*conditions))
     total_bookings = await database.fetch_val(total_query)
 
     # Get count by status
     kutilmoqda_query = select(func.count()).select_from(
         bookings.join(rooms, bookings.c.room_id == rooms.c.id)
-    ).where(bookings.c.status == BookingStatus.KUTILMOQDA)
-    if conditions:
-        kutilmoqda_query = kutilmoqda_query.where(and_(*conditions))
+    ).where(
+        and_(*conditions, bookings.c.status == BookingStatus.KUTILMOQDA)
+    )
     kutilmoqda_count = await database.fetch_val(kutilmoqda_query)
 
     muvaffaqiyatli_query = select(func.count()).select_from(
         bookings.join(rooms, bookings.c.room_id == rooms.c.id)
-    ).where(bookings.c.status == BookingStatus.MUVAFFAQIYATLI)
-    if conditions:
-        muvaffaqiyatli_query = muvaffaqiyatli_query.where(and_(*conditions))
+    ).where(
+        and_(*conditions, bookings.c.status == BookingStatus.MUVAFFAQIYATLI)
+    )
     muvaffaqiyatli_count = await database.fetch_val(muvaffaqiyatli_query)
 
     bekor_qilindi_query = select(func.count()).select_from(
         bookings.join(rooms, bookings.c.room_id == rooms.c.id)
-    ).where(bookings.c.status == BookingStatus.BEKOR_QILINDI)
-    if conditions:
-        bekor_qilindi_query = bekor_qilindi_query.where(and_(*conditions))
+    ).where(
+        and_(*conditions, bookings.c.status == BookingStatus.BEKOR_QILINDI)
+    )
     bekor_qilindi_count = await database.fetch_val(bekor_qilindi_query)
 
     return {
@@ -81,30 +84,36 @@ async def get_booking_stats(
 async def monthly_report(
         year: int,
         month: int,
-        filial_id: Optional[int] = Query(None, description="Filter by filial"),
         current_user: dict = Depends(require_admin)
 ):
     """
-    Get monthly report with breakdown by room.
+    Get monthly report with breakdown by room for the active filial.
     Only ADMIN and SUPERADMIN can view monthly reports.
+    Automatically filtered by active_filial_id.
 
     Returns:
     - Monthly statistics
     - Breakdown by room
     """
+    active_filial_id = current_user.get('active_filial_id')
+
+    if not active_filial_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active filial selected"
+        )
+
     # Calculate date range for the month
     first_day = date(year, month, 1)
     last_day_num = monthrange(year, month)[1]
     last_day = date(year, month, last_day_num)
 
-    # Build base conditions
+    # Build base conditions - always filter by active filial
     conditions = [
         bookings.c.booking_date >= first_day,
-        bookings.c.booking_date <= last_day
+        bookings.c.booking_date <= last_day,
+        rooms.c.filial_id == active_filial_id
     ]
-
-    if filial_id:
-        conditions.append(rooms.c.filial_id == filial_id)
 
     # Get total bookings for the month
     total_query = select(func.count()).select_from(
@@ -134,20 +143,13 @@ async def monthly_report(
     )
     pending_bookings = await database.fetch_val(pending_query)
 
-    # Get breakdown by room
-    # Build conditions for room queries
-    room_conditions = [
-        bookings.c.booking_date >= first_day,
-        bookings.c.booking_date <= last_day
-    ]
-    if filial_id:
-        room_conditions.append(rooms.c.filial_id == filial_id)
-
-    # Get all rooms for the filial(s)
-    all_rooms_query = select(rooms.c.id, rooms.c.name)
-    if filial_id:
-        all_rooms_query = all_rooms_query.where(rooms.c.filial_id == filial_id)
-    all_rooms_query = all_rooms_query.order_by(rooms.c.name)
+    # Get breakdown by room for the active filial
+    all_rooms_query = select(
+        rooms.c.id,
+        rooms.c.name
+    ).where(
+        rooms.c.filial_id == active_filial_id
+    ).order_by(rooms.c.name)
     all_rooms = await database.fetch_all(all_rooms_query)
 
     by_room = []
@@ -198,14 +200,22 @@ async def monthly_report(
 @router.get("/daily/{date_value}")
 async def get_daily_report(
         date_value: date,
-        filial_id: Optional[int] = Query(None, description="Filter by filial"),
         current_user: dict = Depends(require_admin)
 ):
     """
-    Get daily report with all bookings and statistics.
+    Get daily report with all bookings and statistics for the active filial.
     Only ADMIN and SUPERADMIN can view daily reports.
+    Automatically filtered by active_filial_id.
     """
-    # Build query
+    active_filial_id = current_user.get('active_filial_id')
+
+    if not active_filial_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active filial selected"
+        )
+
+    # Build query - filter by active filial
     bookings_query = select(
         bookings,
         rooms.c.name.label('room_name'),
@@ -213,12 +223,13 @@ async def get_daily_report(
     ).select_from(
         bookings.join(rooms, bookings.c.room_id == rooms.c.id)
         .join(filials, rooms.c.filial_id == filials.c.id)
-    ).where(bookings.c.booking_date == date_value)
+    ).where(
+        and_(
+            bookings.c.booking_date == date_value,
+            rooms.c.filial_id == active_filial_id
+        )
+    ).order_by(rooms.c.name)
 
-    if filial_id:
-        bookings_query = bookings_query.where(rooms.c.filial_id == filial_id)
-
-    bookings_query = bookings_query.order_by(rooms.c.name)
     day_bookings = await database.fetch_all(bookings_query)
 
     # Calculate statistics

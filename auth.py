@@ -11,7 +11,7 @@ from sqlalchemy import select, and_
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -32,6 +32,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     if "sub" in to_encode:
         to_encode["sub"] = str(to_encode["sub"])
 
+    # filial_id ham string bo'lishi kerak (agar mavjud bo'lsa)
+    if "filial_id" in to_encode and to_encode["filial_id"] is not None:
+        to_encode["filial_id"] = str(to_encode["filial_id"])
+
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
@@ -49,6 +53,10 @@ def create_refresh_token(data: dict) -> str:
     # MUHIM: 'sub' (User ID) doim string bo'lishi shart
     if "sub" in to_encode:
         to_encode["sub"] = str(to_encode["sub"])
+
+    # filial_id ham string bo'lishi kerak (agar mavjud bo'lsa)
+    if "filial_id" in to_encode and to_encode["filial_id"] is not None:
+        to_encode["filial_id"] = str(to_encode["filial_id"])
 
     expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire, "type": "refresh"})
@@ -68,11 +76,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id_raw = payload.get("sub")
         token_type = payload.get("type")
+        selected_filial_id_raw = payload.get("filial_id")  # Token'dan tanlangan filialni olish
 
         if user_id_raw is None or token_type != "access":
             raise credentials_exception
 
-        user_id = int(user_id_raw)  # Stringni bazaga yuborishdan oldin int qilamiz
+        user_id = int(user_id_raw)
+        selected_filial_id = int(selected_filial_id_raw) if selected_filial_id_raw else None
     except (JWTError, ValueError):
         raise credentials_exception
 
@@ -94,13 +104,22 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     roles_result = await database.fetch_all(roles_query)
     roles = [role['role'] for role in roles_result]
 
+    # Oshpaz uchun filial_id user ma'lumotlaridan olinadi
+    # Admin/Superadmin uchun tokendan olinadi (login paytida tanlangan)
+    if UserRole.OSHPAZ in roles and UserRole.ADMIN not in roles and UserRole.SUPERADMIN not in roles:
+        active_filial_id = user['filial_id']
+    else:
+        active_filial_id = selected_filial_id
+
     return {
         "id": user['id'],
         "username": user['username'],
         "full_name": user['full_name'],
         "phone": user['phone'],
         "is_active": user['is_active'],
-        "roles": roles
+        "roles": roles,
+        "user_filial_id": user['filial_id'],  # Userning asosiy filiali (oshpaz uchun)
+        "active_filial_id": active_filial_id  # Hozirda ishlayotgan filial
     }
 
 
@@ -113,6 +132,7 @@ async def get_current_active_user(current_user: dict = Depends(get_current_user)
 
 def require_roles(allowed_roles: List[UserRole]):
     """Dependency to check if user has required roles."""
+
     async def role_checker(current_user: dict = Depends(get_current_user)):
         user_roles_list = current_user.get('roles', [])
 

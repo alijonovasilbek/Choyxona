@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 from sqlalchemy import select, insert, update, delete
 from database import database
-from models.main_models import rooms, filials
+from models.main_models import rooms, filials, UserRole
 from schemas import RoomCreate, RoomUpdate, RoomResponse
 from auth import require_admin, get_current_user
 from typing import List, Optional
@@ -16,11 +16,20 @@ async def create_room(
 ):
     """
     Create new room/place.
-    ADMIN and SUPERADMIN can create rooms.
-    Must specify which filial the room belongs to.
+
+    Admin/Superadmin: Must provide filial_id in request body
     """
+    # Get filial_id from request
+    filial_id = room_data.filial_id
+
+    if not filial_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Filial ID is required"
+        )
+
     # Check if filial exists
-    filial_query = select(filials).where(filials.c.id == room_data.filial_id)
+    filial_query = select(filials).where(filials.c.id == filial_id)
     filial = await database.fetch_one(filial_query)
     if not filial:
         raise HTTPException(
@@ -30,7 +39,7 @@ async def create_room(
 
     # Check if room name already exists in this filial
     existing_room_query = select(rooms).where(
-        (rooms.c.name == room_data.name) & (rooms.c.filial_id == room_data.filial_id)
+        (rooms.c.name == room_data.name) & (rooms.c.filial_id == filial_id)
     )
     existing_room = await database.fetch_one(existing_room_query)
     if existing_room:
@@ -42,7 +51,7 @@ async def create_room(
     # Insert room
     insert_query = insert(rooms).values(
         name=room_data.name,
-        filial_id=room_data.filial_id,
+        filial_id=filial_id,
         description=room_data.description,
         is_active=True
     )
@@ -62,6 +71,7 @@ async def create_room(
         "name": created_room['name'],
         "filial_id": created_room['filial_id'],
         "filial_name": created_room['filial_name'],
+        "description": created_room['description'],
         "is_active": created_room['is_active'],
         "created_at": created_room['created_at'],
         "updated_at": created_room['updated_at']
@@ -70,15 +80,23 @@ async def create_room(
 
 @router.get("", response_model=List[RoomResponse])
 async def get_all_rooms(
-        filial_id: Optional[int] = Query(None, description="Filter by filial"),
+        filial_id: Optional[int] = Query(None, description="Filter by specific filial"),
         include_inactive: bool = False,
         current_user: dict = Depends(get_current_user)
 ):
     """
     Get all rooms.
-    All authenticated users can view rooms.
-    Admins can see all filials, oshpaz only sees their filial.
+
+    Admin/Superadmin: Can see rooms from all filials (can filter by filial_id)
+    Oshpaz: Can only see rooms from their assigned filial
     """
+    # Determine which filials the user can access
+    is_oshpaz_only = (
+            UserRole.OSHPAZ in current_user['roles'] and
+            UserRole.ADMIN not in current_user['roles'] and
+            UserRole.SUPERADMIN not in current_user['roles']
+    )
+
     # Base query
     query = select(
         rooms,
@@ -87,17 +105,19 @@ async def get_all_rooms(
         rooms.join(filials, rooms.c.filial_id == filials.c.id)
     )
 
-    # If user is oshpaz only, filter by their filial
-    from models.main_models import UserRole
-    if UserRole.OSHPAZ in current_user['roles'] and \
-            UserRole.ADMIN not in current_user['roles'] and \
-            UserRole.SUPERADMIN not in current_user['roles']:
-        if current_user.get('filial_id'):
-            query = query.where(rooms.c.filial_id == current_user['filial_id'])
-
-    # Apply filters
-    if filial_id:
-        query = query.where(rooms.c.filial_id == filial_id)
+    # Apply filial filter
+    if is_oshpaz_only:
+        # Oshpaz: only their filial
+        if not current_user.get('active_filial_id'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Oshpaz must be assigned to a filial"
+            )
+        query = query.where(rooms.c.filial_id == current_user['active_filial_id'])
+    else:
+        # Admin/Superadmin: can filter by filial_id if provided
+        if filial_id:
+            query = query.where(rooms.c.filial_id == filial_id)
 
     if not include_inactive:
         query = query.where(rooms.c.is_active == True)
@@ -110,6 +130,7 @@ async def get_all_rooms(
             "id": room['id'],
             "name": room['name'],
             "filial_id": room['filial_id'],
+            "filial_name": room['filial_name'],
             "description": room['description'],
             "is_active": room['is_active'],
             "created_at": room['created_at'],
@@ -126,7 +147,9 @@ async def get_room(
 ):
     """
     Get room by ID.
-    All authenticated users can view room details.
+
+    Admin/Superadmin: Can view any room
+    Oshpaz: Can only view rooms from their filial
     """
     query = select(
         rooms,
@@ -142,10 +165,24 @@ async def get_room(
             detail="Room not found"
         )
 
+    # Check if user is Oshpaz and if room belongs to their filial
+    is_oshpaz_only = (
+            UserRole.OSHPAZ in current_user['roles'] and
+            UserRole.ADMIN not in current_user['roles'] and
+            UserRole.SUPERADMIN not in current_user['roles']
+    )
+
+    if is_oshpaz_only and room['filial_id'] != current_user.get('active_filial_id'):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Room does not belong to your filial"
+        )
+
     return {
         "id": room['id'],
         "name": room['name'],
         "filial_id": room['filial_id'],
+        "filial_name": room['filial_name'],
         "description": room['description'],
         "is_active": room['is_active'],
         "created_at": room['created_at'],
@@ -161,7 +198,8 @@ async def update_room(
 ):
     """
     Update room.
-    ADMIN and SUPERADMIN can update rooms.
+
+    Admin/Superadmin: Can update any room
     """
     # Check if room exists
     room_query = select(rooms).where(rooms.c.id == room_id)
@@ -176,11 +214,10 @@ async def update_room(
     # Prepare update data
     update_data = {}
     if room_data.name is not None:
-        filial_id = room_data.filial_id if room_data.filial_id else room['filial_id']
         # Check if new name is already taken by another room in the same filial
         existing_room_query = select(rooms).where(
             (rooms.c.name == room_data.name) &
-            (rooms.c.filial_id == filial_id) &
+            (rooms.c.filial_id == room['filial_id']) &
             (rooms.c.id != room_id)
         )
         existing_room = await database.fetch_one(existing_room_query)
@@ -191,21 +228,13 @@ async def update_room(
             )
         update_data['name'] = room_data.name
 
-    if room_data.filial_id is not None:
-        # Check if filial exists
-        filial_query = select(filials).where(filials.c.id == room_data.filial_id)
-        filial = await database.fetch_one(filial_query)
-        if not filial:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Filial not found"
-            )
-        update_data['filial_id'] = room_data.filial_id
-
     if room_data.description is not None:
         update_data['description'] = room_data.description
     if room_data.is_active is not None:
         update_data['is_active'] = room_data.is_active
+
+    # Note: filial_id cannot be changed after creation
+    # Rooms are tied to their filial
 
     # Update room
     if update_data:
@@ -215,6 +244,7 @@ async def update_room(
     # Fetch updated room
     updated_room_query = select(
         rooms,
+        filials.c.name.label('filial_name')
     ).select_from(
         rooms.join(filials, rooms.c.filial_id == filials.c.id)
     ).where(rooms.c.id == room_id)
@@ -224,7 +254,8 @@ async def update_room(
         "id": updated_room['id'],
         "name": updated_room['name'],
         "filial_id": updated_room['filial_id'],
-        "capacity": updated_room['capacity'],
+        "filial_name": updated_room['filial_name'],
+        "description": updated_room['description'],
         "is_active": updated_room['is_active'],
         "created_at": updated_room['created_at'],
         "updated_at": updated_room['updated_at']
@@ -238,7 +269,8 @@ async def delete_room(
 ):
     """
     Delete room.
-    ADMIN and SUPERADMIN can delete rooms.
+
+    Admin/Superadmin: Can delete any room
     """
     # Check if room exists
     room_query = select(rooms).where(rooms.c.id == room_id)
