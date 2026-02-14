@@ -25,6 +25,7 @@ async def create_booking(
     Create new booking.
     Only ADMIN and SUPERADMIN can create bookings.
     Oshpaz cannot create bookings.
+    One room can only be booked once per day.
     """
     # Check if room exists and is active
     room_query = select(rooms).where(rooms.c.id == booking_data.room_id)
@@ -42,13 +43,6 @@ async def create_booking(
             detail="Room is not active"
         )
 
-    # Check if guest count exceeds room capacity
-    if booking_data.guest_count > room['capacity']:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Guest count ({booking_data.guest_count}) exceeds room capacity ({room['capacity']})"
-        )
-
     # Check if booking date is not in the past
     if booking_data.booking_date < date.today():
         raise HTTPException(
@@ -56,25 +50,36 @@ async def create_booking(
             detail="Cannot create booking for past dates"
         )
 
-    # Insert booking - created_at va updated_at avtomatik qo'shiladi
+    # Check if room is already booked for this date (one booking per room per day)
+    existing_booking_query = select(bookings).where(
+        and_(
+            bookings.c.room_id == booking_data.room_id,
+            bookings.c.booking_date == booking_data.booking_date
+        )
+    )
+    existing_booking = await database.fetch_one(existing_booking_query)
+    if existing_booking:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Room is already booked for this date"
+        )
+
+    # Insert booking
     insert_query = insert(bookings).values(
         room_id=booking_data.room_id,
         booking_date=booking_data.booking_date,
-        booking_time=booking_data.booking_time,
-        customer_name=booking_data.customer_name,
-        customer_phone=booking_data.customer_phone,
-        guest_count=booking_data.guest_count,
-        food_description=booking_data.food_description,
         description=booking_data.description,
         status=BookingStatus.KUTILMOQDA,
         created_by=current_user['id']
     )
     booking_id = await database.execute(insert_query)
 
-    # Fetch created booking with room and user info
+    # Fetch created booking with room, filial and user info
     booking_query = select(
         bookings,
         rooms.c.name.label('room_name'),
+        rooms.c.filial_id.label('filial_id'),
+        rooms.c.description.label('room_description'),
         users.c.full_name.label('created_by_name')
     ).select_from(
         bookings
@@ -88,16 +93,10 @@ async def create_booking(
         "id": created_booking['id'],
         "room_id": created_booking['room_id'],
         "room_name": created_booking['room_name'],
+        "filial_id": created_booking['filial_id'],
         "booking_date": created_booking['booking_date'],
-        "booking_time": created_booking['booking_time'],
-        "customer_name": created_booking['customer_name'],
-        "customer_phone": created_booking['customer_phone'],
-        "guest_count": created_booking['guest_count'],
-        "food_description": created_booking['food_description'],
         "description": created_booking['description'],
         "status": created_booking['status'],
-        "total_amount": created_booking['total_amount'],
-        "cancellation_reason": created_booking['cancellation_reason'],
         "created_by": created_booking['created_by'],
         "created_by_name": created_booking['created_by_name'],
         "created_at": created_booking['created_at'],
@@ -109,23 +108,28 @@ async def create_booking(
 async def get_bookings(
         booking_date: Optional[date] = Query(None, description="Filter by date"),
         room_id: Optional[int] = Query(None, description="Filter by room"),
+        filial_id: Optional[int] = Query(None, description="Filter by filial"),
         status_filter: Optional[BookingStatusEnum] = Query(None, description="Filter by status"),
         current_user: dict = Depends(get_current_user)
 ):
     """
     Get all bookings with filters.
     All authenticated users can view bookings.
-    Oshpaz can only see bookings with kutilmoqda or muvaffaqiyatli status.
+    Oshpaz can only see bookings from their filial.
     Admin and Superadmin see all bookings.
     """
+    from models.main_models import filials
+
     # Base query
     query = select(
         bookings,
         rooms.c.name.label('room_name'),
+        rooms.c.filial_id.label('filial_id'),
         users.c.full_name.label('created_by_name')
     ).select_from(
         bookings
         .join(rooms, bookings.c.room_id == rooms.c.id)
+        .join(filials, rooms.c.filial_id == filials.c.id)
         .join(users, bookings.c.created_by == users.c.id)
     )
 
@@ -138,8 +142,18 @@ async def get_bookings(
     if room_id:
         conditions.append(bookings.c.room_id == room_id)
 
+    if filial_id:
+        conditions.append(rooms.c.filial_id == filial_id)
+
     if status_filter:
         conditions.append(bookings.c.status == status_filter.value)
+
+    # If user is oshpaz only, filter by their filial
+    if UserRole.OSHPAZ in current_user['roles'] and \
+            UserRole.ADMIN not in current_user['roles'] and \
+            UserRole.SUPERADMIN not in current_user['roles']:
+        if current_user.get('filial_id'):
+            conditions.append(rooms.c.filial_id == current_user['filial_id'])
 
     # If user is oshpaz, only show kutilmoqda and muvaffaqiyatli bookings
     if UserRole.OSHPAZ in current_user['roles'] and \
@@ -155,7 +169,7 @@ async def get_bookings(
     if conditions:
         query = query.where(and_(*conditions))
 
-    query = query.order_by(bookings.c.booking_date.desc(), bookings.c.booking_time.desc())
+    query = query.order_by(bookings.c.booking_date.desc())
 
     all_bookings = await database.fetch_all(query)
 
@@ -172,16 +186,10 @@ async def get_bookings(
             "id": booking['id'],
             "room_id": booking['room_id'],
             "room_name": booking['room_name'],
+            "filial_id": booking['filial_id'],
             "booking_date": booking['booking_date'],
-            "booking_time": booking['booking_time'],
-            "customer_name": booking['customer_name'],
-            "customer_phone": booking['customer_phone'],
-            "guest_count": booking['guest_count'],
-            "food_description": booking['food_description'],
             "description": booking['description'],
             "status": booking['status'],
-            "total_amount": None if is_oshpaz_only else booking['total_amount'],
-            "cancellation_reason": booking['cancellation_reason'],
             "created_by": booking['created_by'],
             "created_by_name": booking['created_by_name'],
             "created_at": booking['created_at'],
@@ -201,28 +209,43 @@ async def get_bookings_by_date(
     Get all bookings for a specific date.
     Useful for viewing daily schedule.
     """
+    from models.main_models import filials
+
     query = select(
         bookings,
         rooms.c.name.label('room_name'),
+        rooms.c.filial_id.label('filial_id'),
         users.c.full_name.label('created_by_name')
     ).select_from(
         bookings
         .join(rooms, bookings.c.room_id == rooms.c.id)
+        .join(filials, rooms.c.filial_id == filials.c.id)
         .join(users, bookings.c.created_by == users.c.id)
     ).where(bookings.c.booking_date == date_value)
+
+    # If user is oshpaz only, filter by their filial
+    conditions = []
+    if UserRole.OSHPAZ in current_user['roles'] and \
+            UserRole.ADMIN not in current_user['roles'] and \
+            UserRole.SUPERADMIN not in current_user['roles']:
+        if current_user.get('filial_id'):
+            conditions.append(rooms.c.filial_id == current_user['filial_id'])
 
     # If user is oshpaz, only show kutilmoqda and muvaffaqiyatli bookings
     if UserRole.OSHPAZ in current_user['roles'] and \
             UserRole.ADMIN not in current_user['roles'] and \
             UserRole.SUPERADMIN not in current_user['roles']:
-        query = query.where(
+        conditions.append(
             or_(
                 bookings.c.status == BookingStatus.KUTILMOQDA,
                 bookings.c.status == BookingStatus.MUVAFFAQIYATLI
             )
         )
 
-    query = query.order_by(bookings.c.booking_time)
+    if conditions:
+        query = query.where(and_(*conditions))
+
+    query = query.order_by(rooms.c.name)
 
     date_bookings = await database.fetch_all(query)
 
@@ -239,16 +262,10 @@ async def get_bookings_by_date(
             "id": booking['id'],
             "room_id": booking['room_id'],
             "room_name": booking['room_name'],
+            "filial_id": booking['filial_id'],
             "booking_date": booking['booking_date'],
-            "booking_time": booking['booking_time'],
-            "customer_name": booking['customer_name'],
-            "customer_phone": booking['customer_phone'],
-            "guest_count": booking['guest_count'],
-            "food_description": booking['food_description'],
             "description": booking['description'],
             "status": booking['status'],
-            "total_amount": None if is_oshpaz_only else booking['total_amount'],
-            "cancellation_reason": booking['cancellation_reason'],
             "created_by": booking['created_by'],
             "created_by_name": booking['created_by_name'],
             "created_at": booking['created_at'],
@@ -268,13 +285,17 @@ async def get_booking(
     Get booking by ID.
     All authenticated users can view booking details.
     """
+    from models.main_models import filials
+
     query = select(
         bookings,
         rooms.c.name.label('room_name'),
+        rooms.c.filial_id.label('filial_id'),
         users.c.full_name.label('created_by_name')
     ).select_from(
         bookings
         .join(rooms, bookings.c.room_id == rooms.c.id)
+        .join(filials, rooms.c.filial_id == filials.c.id)
         .join(users, bookings.c.created_by == users.c.id)
     ).where(bookings.c.id == booking_id)
 
@@ -297,16 +318,10 @@ async def get_booking(
         "id": booking['id'],
         "room_id": booking['room_id'],
         "room_name": booking['room_name'],
+        "filial_id": booking['filial_id'],
         "booking_date": booking['booking_date'],
-        "booking_time": booking['booking_time'],
-        "customer_name": booking['customer_name'],
-        "customer_phone": booking['customer_phone'],
-        "guest_count": booking['guest_count'],
-        "food_description": booking['food_description'],
         "description": booking['description'],
         "status": booking['status'],
-        "total_amount": None if is_oshpaz_only else booking['total_amount'],
-        "cancellation_reason": booking['cancellation_reason'],
         "created_by": booking['created_by'],
         "created_by_name": booking['created_by_name'],
         "created_at": booking['created_at'],
@@ -354,42 +369,64 @@ async def update_booking(
                 detail="Room is not active"
             )
 
+        # Check for duplicate booking on same date if room or date changed
+        booking_date_to_check = booking_data.booking_date if booking_data.booking_date else booking['booking_date']
+        if booking_data.room_id != booking['room_id'] or \
+           (booking_data.booking_date and booking_data.booking_date != booking['booking_date']):
+            existing_booking_query = select(bookings).where(
+                and_(
+                    bookings.c.room_id == booking_data.room_id,
+                    bookings.c.booking_date == booking_date_to_check,
+                    bookings.c.id != booking_id
+                )
+            )
+            existing_booking = await database.fetch_one(existing_booking_query)
+            if existing_booking:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Room is already booked for this date"
+                )
+
         update_data['room_id'] = booking_data.room_id
 
     if booking_data.booking_date is not None:
+        # Check for duplicate booking on same date
+        room_id_to_check = booking_data.room_id if booking_data.room_id else booking['room_id']
+        if booking_data.booking_date != booking['booking_date']:
+            existing_booking_query = select(bookings).where(
+                and_(
+                    bookings.c.room_id == room_id_to_check,
+                    bookings.c.booking_date == booking_data.booking_date,
+                    bookings.c.id != booking_id
+                )
+            )
+            existing_booking = await database.fetch_one(existing_booking_query)
+            if existing_booking:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Room is already booked for this date"
+                )
         update_data['booking_date'] = booking_data.booking_date
-
-    if booking_data.booking_time is not None:
-        update_data['booking_time'] = booking_data.booking_time
-
-    if booking_data.customer_name is not None:
-        update_data['customer_name'] = booking_data.customer_name
-
-    if booking_data.customer_phone is not None:
-        update_data['customer_phone'] = booking_data.customer_phone
-
-    if booking_data.guest_count is not None:
-        update_data['guest_count'] = booking_data.guest_count
-
-    if booking_data.food_description is not None:
-        update_data['food_description'] = booking_data.food_description
 
     if booking_data.description is not None:
         update_data['description'] = booking_data.description
 
-    # Update booking - updated_at avtomatik yangilanadi
+    # Update booking
     if update_data:
         update_query = update(bookings).where(bookings.c.id == booking_id).values(**update_data)
         await database.execute(update_query)
 
     # Fetch updated booking
+    from models.main_models import filials
     query = select(
         bookings,
         rooms.c.name.label('room_name'),
+        rooms.c.filial_id.label('filial_id'),
         users.c.full_name.label('created_by_name')
     ).select_from(
         bookings
         .join(rooms, bookings.c.room_id == rooms.c.id)
+        .join(filials, rooms.c.filial_id == filials.c.id)
         .join(users, bookings.c.created_by == users.c.id)
     ).where(bookings.c.id == booking_id)
 
@@ -399,16 +436,10 @@ async def update_booking(
         "id": updated_booking['id'],
         "room_id": updated_booking['room_id'],
         "room_name": updated_booking['room_name'],
+        "filial_id": updated_booking['filial_id'],
         "booking_date": updated_booking['booking_date'],
-        "booking_time": updated_booking['booking_time'],
-        "customer_name": updated_booking['customer_name'],
-        "customer_phone": updated_booking['customer_phone'],
-        "guest_count": updated_booking['guest_count'],
-        "food_description": updated_booking['food_description'],
         "description": updated_booking['description'],
         "status": updated_booking['status'],
-        "total_amount": updated_booking['total_amount'],
-        "cancellation_reason": updated_booking['cancellation_reason'],
         "created_by": updated_booking['created_by'],
         "created_by_name": updated_booking['created_by_name'],
         "created_at": updated_booking['created_at'],
@@ -426,9 +457,7 @@ async def update_booking_status(
     Update booking status.
     Only ADMIN and SUPERADMIN can update status.
 
-    - For MUVAFFAQIYATLI: total_amount is required
-    - For BEKOR_QILINDI: cancellation_reason is required
-    - For KUTILMOQDA: no additional fields required
+    - total_amount and cancellation_reason are optional now
     """
     # Check if booking exists
     booking_query = select(bookings).where(bookings.c.id == booking_id)
@@ -445,41 +474,23 @@ async def update_booking_status(
         'status': status_data.status.value
     }
 
-    # Handle status-specific fields
-    if status_data.status == BookingStatusEnum.MUVAFFAQIYATLI:
-        if status_data.total_amount is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="total_amount is required for successful bookings"
-            )
-        update_data['total_amount'] = status_data.total_amount
-        update_data['cancellation_reason'] = None
 
-    elif status_data.status == BookingStatusEnum.BEKOR_QILINDI:
-        if not status_data.cancellation_reason:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="cancellation_reason is required for cancelled bookings"
-            )
-        update_data['cancellation_reason'] = status_data.cancellation_reason
-        update_data['total_amount'] = None
-
-    else:  # KUTILMOQDA
-        update_data['total_amount'] = None
-        update_data['cancellation_reason'] = None
-
-    # Update booking - updated_at avtomatik yangilanadi
+    # Update booking
     update_query = update(bookings).where(bookings.c.id == booking_id).values(**update_data)
     await database.execute(update_query)
 
     # Fetch updated booking
+    from models.main_models import filials
     query = select(
         bookings,
         rooms.c.name.label('room_name'),
+        rooms.c.filial_id.label('filial_id'),
+        filials.c.name.label('filial_name'),
         users.c.full_name.label('created_by_name')
     ).select_from(
         bookings
         .join(rooms, bookings.c.room_id == rooms.c.id)
+        .join(filials, rooms.c.filial_id == filials.c.id)
         .join(users, bookings.c.created_by == users.c.id)
     ).where(bookings.c.id == booking_id)
 
@@ -489,16 +500,10 @@ async def update_booking_status(
         "id": updated_booking['id'],
         "room_id": updated_booking['room_id'],
         "room_name": updated_booking['room_name'],
+        "filial_id": updated_booking['filial_id'],
         "booking_date": updated_booking['booking_date'],
-        "booking_time": updated_booking['booking_time'],
-        "customer_name": updated_booking['customer_name'],
-        "customer_phone": updated_booking['customer_phone'],
-        "guest_count": updated_booking['guest_count'],
-        "food_description": updated_booking['food_description'],
         "description": updated_booking['description'],
         "status": updated_booking['status'],
-        "total_amount": updated_booking['total_amount'],
-        "cancellation_reason": updated_booking['cancellation_reason'],
         "created_by": updated_booking['created_by'],
         "created_by_name": updated_booking['created_by_name'],
         "created_at": updated_booking['created_at'],

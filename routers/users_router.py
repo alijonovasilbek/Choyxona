@@ -1,11 +1,11 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy import select, insert, update, delete, and_
 from database import database
-from models.main_models import users, user_roles, UserRole
+from models.main_models import users, user_roles, filials, UserRole
 from schemas import UserCreate, UserUpdate, UserResponse
 from auth import (
     get_password_hash,
-    require_superadmin,
+    require_admin,
     get_current_user
 )
 from typing import List
@@ -16,11 +16,12 @@ router = APIRouter(prefix="/users", tags=["User Management"])
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
     user_data: UserCreate,
-    current_user: dict = Depends(require_superadmin)
+    current_user: dict = Depends(require_admin)
 ):
     """
     Create new user (Admin or Oshpaz).
-    Only SUPERADMIN can create users.
+    ADMIN and SUPERADMIN can create users.
+    Admins can create users for any filial.
     """
     # Check if username exists
     existing_user_query = select(users).where(users.c.username == user_data.username)
@@ -40,6 +41,16 @@ async def create_user(
             detail="Phone number already registered"
         )
 
+    # If filial_id is provided, check if it exists (for oshpaz)
+    if user_data.filial_id:
+        filial_query = select(filials).where(filials.c.id == user_data.filial_id)
+        filial = await database.fetch_one(filial_query)
+        if not filial:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Filial not found"
+            )
+
     # Hash password
     hashed_password = get_password_hash(user_data.password)
 
@@ -49,7 +60,7 @@ async def create_user(
         phone=user_data.phone,
         username=user_data.username,
         password_hash=hashed_password,
-        telegram_chat_id=user_data.telegram_chat_id,
+        filial_id=user_data.filial_id,
         is_active=True
     )
     user_id = await database.execute(insert_query)
@@ -66,12 +77,20 @@ async def create_user(
     user_query = select(users).where(users.c.id == user_id)
     created_user = await database.fetch_one(user_query)
 
+    # Get filial name if assigned
+    filial_name = None
+    if created_user['filial_id']:
+        filial_query = select(filials.c.name).where(filials.c.id == created_user['filial_id'])
+        filial = await database.fetch_one(filial_query)
+        if filial:
+            filial_name = filial['name']
+
     return {
         "id": created_user['id'],
         "full_name": created_user['full_name'],
         "phone": created_user['phone'],
         "username": created_user['username'],
-        "telegram_chat_id": created_user['telegram_chat_id'],
+        "filial_id": created_user['filial_id'],
         "is_active": created_user['is_active'],
         "roles": user_data.roles,
         "created_at": created_user['created_at']
@@ -80,11 +99,11 @@ async def create_user(
 
 @router.get("", response_model=List[UserResponse])
 async def get_all_users(
-    current_user: dict = Depends(require_superadmin)
+    current_user: dict = Depends(require_admin)
 ):
     """
     Get all users.
-    Only SUPERADMIN can view all users.
+    ADMIN and SUPERADMIN can view all users.
     """
     # Get all users
     users_query = select(users).order_by(users.c.created_at.desc())
@@ -97,12 +116,20 @@ async def get_all_users(
         roles_result = await database.fetch_all(roles_query)
         user_roles_list = [role['role'] for role in roles_result]
 
+        # Get filial name if assigned
+        filial_name = None
+        if user['filial_id']:
+            filial_query = select(filials.c.name).where(filials.c.id == user['filial_id'])
+            filial = await database.fetch_one(filial_query)
+            if filial:
+                filial_name = filial['name']
+
         result.append({
             "id": user['id'],
             "full_name": user['full_name'],
             "phone": user['phone'],
             "username": user['username'],
-            "telegram_chat_id": user['telegram_chat_id'],
+            "filial_id": user['filial_id'],
             "is_active": user['is_active'],
             "roles": user_roles_list,
             "created_at": user['created_at']
@@ -114,11 +141,11 @@ async def get_all_users(
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: int,
-    current_user: dict = Depends(require_superadmin)
+    current_user: dict = Depends(require_admin)
 ):
     """
     Get user by ID.
-    Only SUPERADMIN can view user details.
+    ADMIN and SUPERADMIN can view user details.
     """
     user_query = select(users).where(users.c.id == user_id)
     user = await database.fetch_one(user_query)
@@ -134,12 +161,20 @@ async def get_user(
     roles_result = await database.fetch_all(roles_query)
     user_roles_list = [role['role'] for role in roles_result]
 
+    # Get filial name if assigned
+    filial_name = None
+    if user['filial_id']:
+        filial_query = select(filials.c.name).where(filials.c.id == user['filial_id'])
+        filial = await database.fetch_one(filial_query)
+        if filial:
+            filial_name = filial['name']
+
     return {
         "id": user['id'],
         "full_name": user['full_name'],
         "phone": user['phone'],
         "username": user['username'],
-        "telegram_chat_id": user['telegram_chat_id'],
+        "filial_id": user['filial_id'],
         "is_active": user['is_active'],
         "roles": user_roles_list,
         "created_at": user['created_at']
@@ -150,11 +185,11 @@ async def get_user(
 async def update_user(
     user_id: int,
     user_data: UserUpdate,
-    current_user: dict = Depends(require_superadmin)
+    current_user: dict = Depends(require_admin)
 ):
     """
     Update user.
-    Only SUPERADMIN can update users.
+    ADMIN and SUPERADMIN can update users.
     """
     # Check if user exists
     user_query = select(users).where(users.c.id == user_id)
@@ -184,6 +219,17 @@ async def update_user(
         update_data['phone'] = user_data.phone
     if user_data.telegram_chat_id is not None:
         update_data['telegram_chat_id'] = user_data.telegram_chat_id
+    if user_data.filial_id is not None:
+        # Check if filial exists
+        if user_data.filial_id:
+            filial_query = select(filials).where(filials.c.id == user_data.filial_id)
+            filial = await database.fetch_one(filial_query)
+            if not filial:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Filial not found"
+                )
+        update_data['filial_id'] = user_data.filial_id
     if user_data.is_active is not None:
         update_data['is_active'] = user_data.is_active
 
@@ -212,12 +258,20 @@ async def update_user(
     roles_result = await database.fetch_all(roles_query)
     user_roles_list = [role['role'] for role in roles_result]
 
+    # Get filial name if assigned
+    filial_name = None
+    if updated_user['filial_id']:
+        filial_query = select(filials.c.name).where(filials.c.id == updated_user['filial_id'])
+        filial = await database.fetch_one(filial_query)
+        if filial:
+            filial_name = filial['name']
+
     return {
         "id": updated_user['id'],
         "full_name": updated_user['full_name'],
         "phone": updated_user['phone'],
         "username": updated_user['username'],
-        "telegram_chat_id": updated_user['telegram_chat_id'],
+        "filial_id": updated_user['filial_id'],
         "is_active": updated_user['is_active'],
         "roles": user_roles_list,
         "created_at": updated_user['created_at']
@@ -227,11 +281,11 @@ async def update_user(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: int,
-    current_user: dict = Depends(require_superadmin)
+    current_user: dict = Depends(require_admin)
 ):
     """
     Delete user.
-    Only SUPERADMIN can delete users.
+    ADMIN and SUPERADMIN can delete users.
     Cannot delete yourself.
     """
     if user_id == current_user['id']:

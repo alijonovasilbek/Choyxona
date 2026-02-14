@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 from sqlalchemy import select, func, and_, or_
 from database import database
-from models.main_models import bookings, rooms, BookingStatus, UserRole
+from models.main_models import bookings, rooms, filials, BookingStatus, UserRole
 from schemas import BookingStatsResponse, MonthlyReportResponse
 from auth import require_admin, get_current_user
 from typing import Optional
@@ -13,6 +13,7 @@ router = APIRouter(prefix="/reports", tags=["Reports & Analytics"])
 
 @router.get("/stats", response_model=BookingStatsResponse)
 async def get_booking_stats(
+        filial_id: Optional[int] = Query(None, description="Filter by filial"),
         date_from: Optional[date] = Query(None, description="Start date for filter"),
         date_to: Optional[date] = Query(None, description="End date for filter"),
         current_user: dict = Depends(require_admin)
@@ -24,69 +25,65 @@ async def get_booking_stats(
     Returns:
     - Total bookings count
     - Count by status (kutilmoqda, muvaffaqiyatli, bekor_qilindi)
-    - Total revenue (sum of successful bookings)
     """
     # Build query conditions
     conditions = []
+
+    if filial_id:
+        conditions.append(rooms.c.filial_id == filial_id)
+
     if date_from:
         conditions.append(bookings.c.booking_date >= date_from)
     if date_to:
         conditions.append(bookings.c.booking_date <= date_to)
 
     # Get total bookings count
-    total_query = select(func.count()).select_from(bookings)
+    total_query = select(func.count()).select_from(
+        bookings.join(rooms, bookings.c.room_id == rooms.c.id)
+    )
     if conditions:
         total_query = total_query.where(and_(*conditions))
     total_bookings = await database.fetch_val(total_query)
 
     # Get count by status
-    kutilmoqda_query = select(func.count()).select_from(bookings).where(
-        bookings.c.status == BookingStatus.KUTILMOQDA
-    )
+    kutilmoqda_query = select(func.count()).select_from(
+        bookings.join(rooms, bookings.c.room_id == rooms.c.id)
+    ).where(bookings.c.status == BookingStatus.KUTILMOQDA)
     if conditions:
         kutilmoqda_query = kutilmoqda_query.where(and_(*conditions))
     kutilmoqda_count = await database.fetch_val(kutilmoqda_query)
 
-    muvaffaqiyatli_query = select(func.count()).select_from(bookings).where(
-        bookings.c.status == BookingStatus.MUVAFFAQIYATLI
-    )
+    muvaffaqiyatli_query = select(func.count()).select_from(
+        bookings.join(rooms, bookings.c.room_id == rooms.c.id)
+    ).where(bookings.c.status == BookingStatus.MUVAFFAQIYATLI)
     if conditions:
         muvaffaqiyatli_query = muvaffaqiyatli_query.where(and_(*conditions))
     muvaffaqiyatli_count = await database.fetch_val(muvaffaqiyatli_query)
 
-    bekor_qilindi_query = select(func.count()).select_from(bookings).where(
-        bookings.c.status == BookingStatus.BEKOR_QILINDI
-    )
+    bekor_qilindi_query = select(func.count()).select_from(
+        bookings.join(rooms, bookings.c.room_id == rooms.c.id)
+    ).where(bookings.c.status == BookingStatus.BEKOR_QILINDI)
     if conditions:
         bekor_qilindi_query = bekor_qilindi_query.where(and_(*conditions))
     bekor_qilindi_count = await database.fetch_val(bekor_qilindi_query)
-
-    # Get total revenue (sum of successful bookings) - COALESCE handles NULL values
-    revenue_query = select(
-        func.coalesce(func.sum(bookings.c.total_amount), 0)
-    ).select_from(bookings).where(
-        and_(
-            bookings.c.status == BookingStatus.MUVAFFAQIYATLI,
-            bookings.c.total_amount.isnot(None)
-        )
-    )
-    if conditions:
-        revenue_query = revenue_query.where(and_(*conditions))
-    total_revenue = await database.fetch_val(revenue_query)
 
     return {
         "total_bookings": total_bookings or 0,
         "kutilmoqda_count": kutilmoqda_count or 0,
         "muvaffaqiyatli_count": muvaffaqiyatli_count or 0,
         "bekor_qilindi_count": bekor_qilindi_count or 0,
-        "total_revenue": float(total_revenue) if total_revenue else 0.0,
         "date_from": date_from,
         "date_to": date_to
     }
 
 
 @router.get("/monthly/{year}/{month}", response_model=MonthlyReportResponse)
-async def monthly_report(year: int, month: int, current_user: dict = Depends(require_admin)):
+async def monthly_report(
+        year: int,
+        month: int,
+        filial_id: Optional[int] = Query(None, description="Filter by filial"),
+        current_user: dict = Depends(require_admin)
+):
     """
     Get monthly report with breakdown by room.
     Only ADMIN and SUPERADMIN can view monthly reports.
@@ -100,59 +97,57 @@ async def monthly_report(year: int, month: int, current_user: dict = Depends(req
     last_day_num = monthrange(year, month)[1]
     last_day = date(year, month, last_day_num)
 
+    # Build base conditions
+    conditions = [
+        bookings.c.booking_date >= first_day,
+        bookings.c.booking_date <= last_day
+    ]
+
+    if filial_id:
+        conditions.append(rooms.c.filial_id == filial_id)
+
     # Get total bookings for the month
-    total_query = select(func.count()).select_from(bookings).where(
-        and_(
-            bookings.c.booking_date >= first_day,
-            bookings.c.booking_date <= last_day
-        )
-    )
+    total_query = select(func.count()).select_from(
+        bookings.join(rooms, bookings.c.room_id == rooms.c.id)
+    ).where(and_(*conditions))
     total_bookings = await database.fetch_val(total_query)
 
     # Get count by status
-    successful_query = select(func.count()).select_from(bookings).where(
-        and_(
-            bookings.c.booking_date >= first_day,
-            bookings.c.booking_date <= last_day,
-            bookings.c.status == BookingStatus.MUVAFFAQIYATLI
-        )
+    successful_query = select(func.count()).select_from(
+        bookings.join(rooms, bookings.c.room_id == rooms.c.id)
+    ).where(
+        and_(*conditions, bookings.c.status == BookingStatus.MUVAFFAQIYATLI)
     )
     successful_bookings = await database.fetch_val(successful_query)
 
-    cancelled_query = select(func.count()).select_from(bookings).where(
-        and_(
-            bookings.c.booking_date >= first_day,
-            bookings.c.booking_date <= last_day,
-            bookings.c.status == BookingStatus.BEKOR_QILINDI
-        )
+    cancelled_query = select(func.count()).select_from(
+        bookings.join(rooms, bookings.c.room_id == rooms.c.id)
+    ).where(
+        and_(*conditions, bookings.c.status == BookingStatus.BEKOR_QILINDI)
     )
     cancelled_bookings = await database.fetch_val(cancelled_query)
 
-    pending_query = select(func.count()).select_from(bookings).where(
-        and_(
-            bookings.c.booking_date >= first_day,
-            bookings.c.booking_date <= last_day,
-            bookings.c.status == BookingStatus.KUTILMOQDA
-        )
+    pending_query = select(func.count()).select_from(
+        bookings.join(rooms, bookings.c.room_id == rooms.c.id)
+    ).where(
+        and_(*conditions, bookings.c.status == BookingStatus.KUTILMOQDA)
     )
     pending_bookings = await database.fetch_val(pending_query)
 
-    # Get total revenue - COALESCE handles NULL values
-    revenue_query = select(
-        func.coalesce(func.sum(bookings.c.total_amount), 0)
-    ).select_from(bookings).where(
-        and_(
-            bookings.c.booking_date >= first_day,
-            bookings.c.booking_date <= last_day,
-            bookings.c.status == BookingStatus.MUVAFFAQIYATLI,
-            bookings.c.total_amount.isnot(None)
-        )
-    )
-    total_revenue = await database.fetch_val(revenue_query)
+    # Get breakdown by room
+    # Build conditions for room queries
+    room_conditions = [
+        bookings.c.booking_date >= first_day,
+        bookings.c.booking_date <= last_day
+    ]
+    if filial_id:
+        room_conditions.append(rooms.c.filial_id == filial_id)
 
-    # Get breakdown by room - SIMPLIFIED VERSION
-    # First, get all rooms
-    all_rooms_query = select(rooms.c.id, rooms.c.name).order_by(rooms.c.name)
+    # Get all rooms for the filial(s)
+    all_rooms_query = select(rooms.c.id, rooms.c.name)
+    if filial_id:
+        all_rooms_query = all_rooms_query.where(rooms.c.filial_id == filial_id)
+    all_rooms_query = all_rooms_query.order_by(rooms.c.name)
     all_rooms = await database.fetch_all(all_rooms_query)
 
     by_room = []
@@ -182,26 +177,11 @@ async def monthly_report(year: int, month: int, current_user: dict = Depends(req
         )
         room_successful = await database.fetch_val(room_successful_query)
 
-        # Revenue for this room
-        room_revenue_query = select(
-            func.coalesce(func.sum(bookings.c.total_amount), 0)
-        ).select_from(bookings).where(
-            and_(
-                bookings.c.room_id == room_id,
-                bookings.c.booking_date >= first_day,
-                bookings.c.booking_date <= last_day,
-                bookings.c.status == BookingStatus.MUVAFFAQIYATLI,
-                bookings.c.total_amount.isnot(None)
-            )
-        )
-        room_revenue = await database.fetch_val(room_revenue_query)
-
         by_room.append({
             "room_id": room_id,
             "room_name": room_name,
             "total_bookings": room_total or 0,
-            "successful_bookings": room_successful or 0,
-            "revenue": float(room_revenue) if room_revenue else 0.0
+            "successful_bookings": room_successful or 0
         })
 
     return {
@@ -211,7 +191,6 @@ async def monthly_report(year: int, month: int, current_user: dict = Depends(req
         "successful_bookings": successful_bookings or 0,
         "cancelled_bookings": cancelled_bookings or 0,
         "pending_bookings": pending_bookings or 0,
-        "total_revenue": float(total_revenue) if total_revenue else 0.0,
         "by_room": by_room
     }
 
@@ -219,22 +198,27 @@ async def monthly_report(year: int, month: int, current_user: dict = Depends(req
 @router.get("/daily/{date_value}")
 async def get_daily_report(
         date_value: date,
+        filial_id: Optional[int] = Query(None, description="Filter by filial"),
         current_user: dict = Depends(require_admin)
 ):
     """
     Get daily report with all bookings and statistics.
     Only ADMIN and SUPERADMIN can view daily reports.
     """
-    # Get all bookings for the date
+    # Build query
     bookings_query = select(
         bookings,
-        rooms.c.name.label('room_name')
+        rooms.c.name.label('room_name'),
+        filials.c.name.label('filial_name')
     ).select_from(
         bookings.join(rooms, bookings.c.room_id == rooms.c.id)
-    ).where(
-        bookings.c.booking_date == date_value
-    ).order_by(bookings.c.booking_time)
+        .join(filials, rooms.c.filial_id == filials.c.id)
+    ).where(bookings.c.booking_date == date_value)
 
+    if filial_id:
+        bookings_query = bookings_query.where(rooms.c.filial_id == filial_id)
+
+    bookings_query = bookings_query.order_by(rooms.c.name)
     day_bookings = await database.fetch_all(bookings_query)
 
     # Calculate statistics
@@ -243,24 +227,14 @@ async def get_daily_report(
     muvaffaqiyatli_count = sum(1 for b in day_bookings if b['status'] == BookingStatus.MUVAFFAQIYATLI)
     bekor_qilindi_count = sum(1 for b in day_bookings if b['status'] == BookingStatus.BEKOR_QILINDI)
 
-    total_revenue = sum(
-        float(b['total_amount']) if b['total_amount'] else 0.0
-        for b in day_bookings
-        if b['status'] == BookingStatus.MUVAFFAQIYATLI
-    )
-
     # Format bookings
     bookings_list = [
         {
             "id": b['id'],
             "room_name": b['room_name'],
-            "booking_time": str(b['booking_time']),
-            "customer_name": b['customer_name'],
-            "customer_phone": b['customer_phone'],
-            "guest_count": b['guest_count'],
-            "food_description": b['food_description'],
-            "status": b['status'],
-            "total_amount": float(b['total_amount']) if b['total_amount'] else None
+            "filial_name": b['filial_name'],
+            "description": b['description'],
+            "status": b['status']
         }
         for b in day_bookings
     ]
@@ -271,8 +245,7 @@ async def get_daily_report(
             "total_bookings": total_bookings,
             "kutilmoqda": kutilmoqda_count,
             "muvaffaqiyatli": muvaffaqiyatli_count,
-            "bekor_qilindi": bekor_qilindi_count,
-            "total_revenue": total_revenue
+            "bekor_qilindi": bekor_qilindi_count
         },
         "bookings": bookings_list
     }

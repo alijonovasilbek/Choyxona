@@ -79,7 +79,6 @@ async def register(user_data: UserRegister):
         "full_name": created_user['full_name'],
         "phone": created_user['phone'],
         "username": created_user['username'],
-        "telegram_chat_id": created_user['telegram_chat_id'],
         "is_active": created_user['is_active'],
         "roles": [UserRole.SUPERADMIN],
         "created_at": created_user['created_at']
@@ -130,7 +129,6 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "full_name": current_user['full_name'],
         "phone": current_user['phone'],
         "username": current_user['username'],
-        "telegram_chat_id": current_user['telegram_chat_id'],
         "is_active": current_user['is_active'],
         "roles": current_user['roles'],
         "created_at": user_data['created_at']

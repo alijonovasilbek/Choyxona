@@ -99,7 +99,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         "username": user['username'],
         "full_name": user['full_name'],
         "phone": user['phone'],
-        "telegram_chat_id": user['telegram_chat_id'],
         "is_active": user['is_active'],
         "roles": roles
     }
