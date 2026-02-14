@@ -200,37 +200,23 @@ fun DashboardScreen(
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     item {
-                        QuickActionButton(
-                            title = "Bronlar",
-                            icon = Icons.Default.Book,
-                            onClick = onNavigateToBookings
-                        )
+                        QuickActionButton("Bronlar", Icons.Default.Book, onNavigateToBookings)
                     }
                     item {
-                        QuickActionButton(
-                            title = "Xonalar",
-                            icon = Icons.Default.MeetingRoom,
-                            onClick = onNavigateToRooms
-                        )
+                        QuickActionButton("Xonalar", Icons.Default.MeetingRoom, onNavigateToRooms)
                     }
                     item {
-                        QuickActionButton(
-                            title = "Userlar",
-                            icon = Icons.Default.People,
-                            onClick = onNavigateToUsers
-                        )
+                        QuickActionButton("Userlar", Icons.Default.People, onNavigateToUsers)
                     }
                     item {
-                        QuickActionButton(
-                            title = "Hisobotlar",
-                            icon = Icons.Default.Analytics,
-                            onClick = onNavigateToReports
-                        )
+                        QuickActionButton("Hisobotlar", Icons.Default.Analytics, onNavigateToReports)
                     }
                 }
+
             } else {
                 // 3 buttons for other users
                 Row(
@@ -310,11 +296,12 @@ fun QuickActionButton(
     modifier: Modifier = Modifier
 ) {
     GlassCard(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         onClick = onClick
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
         ) {
             Box(
                 modifier = Modifier

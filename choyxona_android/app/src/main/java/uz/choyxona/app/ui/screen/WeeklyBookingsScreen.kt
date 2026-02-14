@@ -309,7 +309,7 @@ fun WeeklyBookingsScreen(
                     },
                     onChangeStatus = { booking ->
                         selectedBooking = booking
-                        selectedStatus = booking.status
+                        selectedStatus = booking.status ?: BookingStatus.PENDING
                         totalAmount = booking.totalAmount?.toString() ?: ""
                         cancellationReason = booking.cancellationReason ?: ""
                         showStatusDialog = true
@@ -393,8 +393,8 @@ fun WeekCalendarView(
                 date = date,
                 dayName = dayNames[date.dayOfWeek.value - 1],
                 bookingsCount = bookings.size,
-                pendingCount = bookings.count { it.status == BookingStatus.PENDING },
-                successfulCount = bookings.count { it.status == BookingStatus.SUCCESSFUL },
+                pendingCount = bookings.count { (it.status ?: BookingStatus.PENDING) == BookingStatus.PENDING },
+                successfulCount = bookings.count { (it.status ?: BookingStatus.PENDING) == BookingStatus.SUCCESSFUL },
                 onClick = { onDayClick(date) }
             )
         }
@@ -628,7 +628,9 @@ fun DayBookingCard(
     onDelete: () -> Unit,
     onChangeStatus: () -> Unit
 ) {
-    val statusColor = when (booking.status) {
+    // Safely handle null status - default to PENDING if null
+    val currentStatus = booking.status ?: BookingStatus.PENDING
+    val statusColor = when (currentStatus) {
         BookingStatus.PENDING -> StatusPending
         BookingStatus.SUCCESSFUL -> StatusSuccessful
         BookingStatus.CANCELLED -> StatusCancelled
@@ -730,7 +732,7 @@ fun DayBookingCard(
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = booking.status.getDisplayName(),
+                        text = currentStatus.getDisplayName(),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
                         color = statusColor
