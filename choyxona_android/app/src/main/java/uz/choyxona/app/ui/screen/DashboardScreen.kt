@@ -3,9 +3,6 @@ package uz.choyxona.app.ui.screen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -77,11 +74,6 @@ fun DashboardScreen(
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
-                    Text(
-                        text = "Bugun qanday ish bormi?",
-                        fontSize = 14.sp,
-                        color = TextSecondary
-                    )
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -131,144 +123,36 @@ fun DashboardScreen(
                 }
             }
 
-            // Stats Cards
-            if (stats != null) {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    item {
-                        StatCard(
-                            title = "Barcha bronlar",
-                            value = stats.totalBookings.toString(),
-                            icon = Icons.Default.CalendarMonth,
-                            color = PrimaryGreen
-                        )
-                    }
-                    item {
-                        StatCard(
-                            title = "Kutilmoqda",
-                            value = stats.pendingCount.toString(),
-                            icon = Icons.Default.Pending,
-                            color = StatusPending
-                        )
-                    }
-                    item {
-                        StatCard(
-                            title = "Muvaffaqiyatli",
-                            value = stats.successfulCount.toString(),
-                            icon = Icons.Default.CheckCircle,
-                            color = StatusSuccessful
-                        )
-                    }
-                    item {
-                        StatCard(
-                            title = "Bekor qilindi",
-                            value = stats.cancelledCount.toString(),
-                            icon = Icons.Default.Cancel,
-                            color = StatusCancelled
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Revenue Card
-                LiquidGlassCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "Jami tushum",
-                                fontSize = 14.sp,
-                                color = TextSecondary
-                            )
-                            Text(
-                                text = "${String.format("%.0f", stats.totalRevenue)} so'm",
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PrimaryGreenDark
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.Default.AccountBalanceWallet,
-                            contentDescription = "Revenue",
-                            tint = PrimaryGreenDark,
-                            modifier = Modifier.size(48.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-
-            // Quick Actions
-            Text(
-                text = "Tezkor amallar",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             // Check if user is superadmin
             val isSuperAdmin = currentUser?.roles?.contains("superadmin") == true
 
             if (isSuperAdmin) {
-                // 4 buttons for superadmin
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth()
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    item {
-                        QuickActionButton("Bronlar", Icons.Default.Book, onNavigateToBookings)
-                    }
-                    item {
-                        QuickActionButton("Xonalar", Icons.Default.MeetingRoom, onNavigateToRooms)
-                    }
-                    item {
-                        QuickActionButton("Userlar", Icons.Default.People, onNavigateToUsers)
-                    }
-                    item {
-                        QuickActionButton("Hisobotlar", Icons.Default.Analytics, onNavigateToReports)
-                    }
+                    QuickActionButton("Bronlar", Icons.Default.Book, onNavigateToBookings)
+                    QuickActionButton("Xonalar", Icons.Default.MeetingRoom, onNavigateToRooms)
+                    QuickActionButton("Userlar", Icons.Default.People, onNavigateToUsers)
                 }
 
             } else {
-                // 3 buttons for other users
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     QuickActionButton(
                         title = "Bronlar",
                         icon = Icons.Default.Book,
-                        onClick = onNavigateToBookings,
-                        modifier = Modifier.weight(1f)
+                        onClick = onNavigateToBookings
                     )
 
                     QuickActionButton(
                         title = "Xonalar",
                         icon = Icons.Default.MeetingRoom,
-                        onClick = onNavigateToRooms,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    QuickActionButton(
-                        title = "Hisobotlar",
-                        icon = Icons.Default.Analytics,
-                        onClick = onNavigateToReports,
-                        modifier = Modifier.weight(1f)
+                        onClick = onNavigateToRooms
                     )
                 }
             }
@@ -332,7 +216,8 @@ fun QuickActionButton(
         ) {
             Box(
                 modifier = Modifier
-                    .size(56.dp)
+                    .width(100.dp)
+                    .height(76.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(
                         brush = Brush.linearGradient(
@@ -347,7 +232,8 @@ fun QuickActionButton(
                 Icon(
                     imageVector = icon,
                     contentDescription = title,
-                    tint = Color.White
+                    tint = Color.White,
+                    modifier = Modifier.size(42.dp)
                 )
             }
 

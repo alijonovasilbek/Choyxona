@@ -28,6 +28,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun CreateBookingScreen(
     rooms: List<RoomResponse>,
+    initialRoomId: Int? = null,
+    initialDate: String? = null,
     onCreateBooking: (
         roomId: Int,
         date: String,
@@ -37,8 +39,11 @@ fun CreateBookingScreen(
     isLoading: Boolean = false,
     error: String? = null
 ) {
+    val parsedInitialDate = remember(initialDate) {
+        initialDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+    }
     var selectedRoom by remember { mutableStateOf<RoomResponse?>(null) }
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var selectedDate by remember(parsedInitialDate) { mutableStateOf(parsedInitialDate ?: LocalDate.now()) }
     var description by remember { mutableStateOf("") }
     val activeRooms = remember(rooms) { rooms.filter { it.isActive } }
 
@@ -46,13 +51,17 @@ fun CreateBookingScreen(
     var showDatePicker by remember { mutableStateOf(false) }
 
     val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = System.currentTimeMillis()
+        initialSelectedDateMillis = selectedDate.toEpochDay() * 24L * 60L * 60L * 1000L
     )
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(activeRooms) {
+    LaunchedEffect(activeRooms, rooms, initialRoomId) {
+        if (selectedRoom == null && initialRoomId != null) {
+            selectedRoom = activeRooms.firstOrNull { it.id == initialRoomId }
+                ?: rooms.firstOrNull { it.id == initialRoomId }
+        }
         if (selectedRoom == null && activeRooms.size == 1) {
             selectedRoom = activeRooms.first()
         }

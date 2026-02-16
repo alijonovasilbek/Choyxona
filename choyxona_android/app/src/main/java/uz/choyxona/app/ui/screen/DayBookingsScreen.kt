@@ -169,28 +169,7 @@ fun RoomBookingsCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = roomName.uppercase(),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-            }
 
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(PrimaryGreen.copy(alpha = 0.15f))
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = "${bookings.size} ta bron",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = PrimaryGreen
-                )
-            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -264,18 +243,6 @@ fun BookingItemCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Status change button
-                IconButton(
-                    onClick = { onChangeStatus(booking) },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ChangeCircle,
-                        contentDescription = "Change Status",
-                        tint = PrimaryGreen,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
                 // Edit button
                 IconButton(
                     onClick = { onEditBooking(booking) },

@@ -20,6 +20,7 @@ fun GlassCard(
     modifier: Modifier = Modifier,
     cornerRadius: Dp = 16.dp,
     backgroundColor: Color = GlassWhite,
+    contentPadding: Dp = 16.dp,
     elevation: Dp = 0.dp,
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
@@ -37,7 +38,7 @@ fun GlassCard(
                 ),
                 RoundedCornerShape(cornerRadius)
             )
-            .padding(16.dp)
+            .padding(contentPadding)
     } else {
         modifier
             .shadow(elevation, RoundedCornerShape(cornerRadius))
@@ -50,7 +51,7 @@ fun GlassCard(
                 ),
                 RoundedCornerShape(cornerRadius)
             )
-            .padding(16.dp)
+            .padding(contentPadding)
     }
 
     Column(

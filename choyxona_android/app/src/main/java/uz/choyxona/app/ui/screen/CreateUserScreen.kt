@@ -1,6 +1,7 @@
 package uz.choyxona.app.ui.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import uz.choyxona.app.data.model.FilialInfo
 import uz.choyxona.app.ui.components.GlassButton
 import uz.choyxona.app.ui.components.GlassTextField
 import uz.choyxona.app.ui.components.LiquidGlassCard
@@ -25,6 +27,7 @@ import uz.choyxona.app.ui.theme.*
 fun CreateUserScreen(
     onNavigateBack: () -> Unit,
     onCreateUser: (fullName: String, phone: String, username: String, password: String, filialId: Int?, roles: List<String>) -> Unit,
+    availableFilials: List<FilialInfo> = emptyList(),
     isLoading: Boolean = false,
     error: String? = null
 ) {
@@ -32,13 +35,14 @@ fun CreateUserScreen(
     var phone by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var filialIdInput by remember { mutableStateOf("") }
+    var selectedFilialId by remember { mutableStateOf<Int?>(null) }
     var selectedRoles by remember { mutableStateOf(setOf<String>()) }
 
     var nameError by remember { mutableStateOf(false) }
     var phoneError by remember { mutableStateOf(false) }
     var usernameError by remember { mutableStateOf(false) }
     var passwordError by remember { mutableStateOf(false) }
+    var filialError by remember { mutableStateOf(false) }
     var rolesError by remember { mutableStateOf(false) }
 
     val availableRoles = listOf(
@@ -56,10 +60,15 @@ fun CreateUserScreen(
         }
     }
 
-    // Telefon raqamini tekshirish
-    val isPhoneValid: (String) -> Boolean = { phoneNum ->
-        val formatted = formatPhoneNumber(phoneNum)
-        formatted.matches(Regex("^\\+998\\d{9}$"))
+    val isAdminSelected = selectedRoles.contains("admin")
+
+    LaunchedEffect(availableFilials) {
+        if (selectedFilialId != null && availableFilials.none { it.id == selectedFilialId }) {
+            selectedFilialId = null
+        }
+        if (selectedFilialId == null && availableFilials.size == 1) {
+            selectedFilialId = availableFilials.first().id
+        }
     }
 
     Box(
@@ -179,13 +188,70 @@ fun CreateUserScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    GlassTextField(
-                        value = filialIdInput,
-                        onValueChange = { filialIdInput = it },
-                        label = "Filial ID (ixtiyoriy)",
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardType = KeyboardType.Number
-                    )
+                    Column {
+                        Text(
+                            text = if (isAdminSelected) "Filial (Admin uchun ixtiyoriy)" else "Filial *",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        if (isAdminSelected) {
+                            Text(
+                                text = "Admin roli tanlandi: bu foydalanuvchi 2 ta filialga ham kira oladi.",
+                                color = PrimaryGreenDark,
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        } else if (availableFilials.isNotEmpty()) {
+                            availableFilials.forEach { filial ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            selectedFilialId = filial.id
+                                            filialError = false
+                                        }
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = selectedFilialId == filial.id,
+                                        onClick = {
+                                            selectedFilialId = filial.id
+                                            filialError = false
+                                        },
+                                        colors = RadioButtonDefaults.colors(
+                                            selectedColor = PrimaryGreen
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = filial.name,
+                                        fontSize = 14.sp,
+                                        color = TextPrimary
+                                    )
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = "Filiallar ro'yxati topilmadi",
+                                color = TextSecondary,
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+
+                        if (filialError) {
+                            Text(
+                                text = "Filialni tanlang",
+                                color = ErrorRed,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(top = 4.dp, start = 8.dp)
+                            )
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -256,18 +322,19 @@ fun CreateUserScreen(
                             usernameError = username.isBlank()
                             passwordError = password.length < 6
                             rolesError = selectedRoles.isEmpty()
+                            filialError = !isAdminSelected && availableFilials.isNotEmpty() && selectedFilialId == null
 
                             // Telefon validatsiyasi - TO'G'RILANDI
                             val formattedPhone = formatPhoneNumber(phone)
                             phoneError = !formattedPhone.matches(Regex("^\\+998\\d{9}$"))
 
-                            if (!nameError && !phoneError && !usernameError && !passwordError && !rolesError) {
+                            if (!nameError && !phoneError && !usernameError && !passwordError && !filialError && !rolesError) {
                                 onCreateUser(
                                     fullName.trim(),
                                     formattedPhone, // Formatlanigan telefon yuboriladi
                                     username.trim(),
                                     password,
-                                    filialIdInput.trim().takeIf { it.isNotBlank() }?.toIntOrNull(),
+                                    if (isAdminSelected) null else selectedFilialId,
                                     selectedRoles.toList()
                                 )
                             }

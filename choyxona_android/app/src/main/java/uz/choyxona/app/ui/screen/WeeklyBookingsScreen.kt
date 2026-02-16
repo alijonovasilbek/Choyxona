@@ -20,11 +20,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uz.choyxona.app.data.model.BookingResponse
 import uz.choyxona.app.data.model.BookingStatus
-import uz.choyxona.app.data.model.getDisplayName
+import uz.choyxona.app.data.model.RoomResponse
 import uz.choyxona.app.ui.components.GlassCard
 import uz.choyxona.app.ui.components.LiquidGlassCard
 import uz.choyxona.app.ui.theme.*
@@ -36,23 +37,22 @@ import java.time.temporal.TemporalAdjusters
 @Composable
 fun WeeklyBookingsScreen(
     bookings: List<BookingResponse>,
+    rooms: List<RoomResponse>,
     isLoading: Boolean,
     onRefresh: () -> Unit,
     onBookingClick: (BookingResponse) -> Unit,
     onNavigateBack: () -> Unit,
     onCreateBooking: () -> Unit,
+    onCreateBookingForRoomDate: (roomId: Int, date: LocalDate) -> Unit,
     onEditBooking: (BookingResponse) -> Unit,
-    onDeleteBooking: (BookingResponse) -> Unit,
-    onUpdateStatus: (BookingResponse, BookingStatus, Double?, String?) -> Unit
+    onDeleteBooking: (BookingResponse) -> Unit
 ) {
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
     var currentWeekStart by remember { mutableStateOf(
         LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     ) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showStatusDialog by remember { mutableStateOf(false) }
     var selectedBooking by remember { mutableStateOf<BookingResponse?>(null) }
-    var selectedStatus by remember { mutableStateOf<BookingStatus?>(null) }
 
     // Hafta kunlari uchun bronlarni guruhlash
     val weekBookings = remember(bookings, currentWeekStart) {
@@ -89,76 +89,6 @@ fun WeeklyBookingsScreen(
                     onClick = {
                         showDeleteDialog = false
                         selectedBooking = null
-                    }
-                ) {
-                    Text("Bekor qilish")
-                }
-            }
-        )
-    }
-
-    // Status Update Dialog
-    if (showStatusDialog && selectedBooking != null) {
-        AlertDialog(
-            onDismissRequest = {
-                showStatusDialog = false
-                selectedBooking = null
-                selectedStatus = null
-            },
-            title = { Text("Bron holatini o'zgartirish") },
-            text = {
-                Column {
-                    Text(
-                        text = "Yangi holatni tanlang:",
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    // Status options
-                    BookingStatus.values().forEach { status ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = selectedStatus == status,
-                                onClick = { selectedStatus = status },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = PrimaryGreen
-                                )
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(status.getDisplayName())
-                        }
-                    }
-
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        selectedStatus?.let { status ->
-                            selectedBooking?.let { booking ->
-                                onUpdateStatus(booking, status, null, null)
-                            }
-                        }
-                        showStatusDialog = false
-                        selectedBooking = null
-                        selectedStatus = null
-                    },
-                    enabled = selectedStatus != null
-                ) {
-                    Text("Saqlash", color = PrimaryGreen)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showStatusDialog = false
-                        selectedBooking = null
-                        selectedStatus = null
                     }
                 ) {
                     Text("Bekor qilish")
@@ -253,18 +183,14 @@ fun WeeklyBookingsScreen(
                 // Tanlangan kun uchun bronlar ro'yxati
                 DayBookingsView(
                     date = selectedDate!!,
+                    rooms = rooms,
                     bookings = weekBookings[selectedDate!!] ?: emptyList(),
                     onBack = { selectedDate = null },
-                    onBookingClick = onBookingClick,
+                    onCreateBookingForRoomDate = onCreateBookingForRoomDate,
                     onEditBooking = onEditBooking,
                     onDeleteBooking = { booking ->
                         selectedBooking = booking
                         showDeleteDialog = true
-                    },
-                    onChangeStatus = { booking ->
-                        selectedBooking = booking
-                        selectedStatus = booking.safeStatus()
-                        showStatusDialog = true
                     }
                 )
             }
@@ -473,12 +399,12 @@ fun StatusIndicator(
 @Composable
 fun DayBookingsView(
     date: LocalDate,
+    rooms: List<RoomResponse>,
     bookings: List<BookingResponse>,
     onBack: () -> Unit,
-    onBookingClick: (BookingResponse) -> Unit,
+    onCreateBookingForRoomDate: (roomId: Int, date: LocalDate) -> Unit,
     onEditBooking: (BookingResponse) -> Unit,
-    onDeleteBooking: (BookingResponse) -> Unit,
-    onChangeStatus: (BookingResponse) -> Unit
+    onDeleteBooking: (BookingResponse) -> Unit
 ) {
     val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     val dayNames = mapOf(
@@ -490,6 +416,37 @@ fun DayBookingsView(
         6 to "Shanba",
         7 to "Yakshanba"
     )
+    val bookingsByRoomId = remember(bookings) { bookings.groupBy { it.roomId } }
+    val knownRoomIds = remember(rooms) { rooms.map { it.id }.toSet() }
+    val dayRooms = remember(rooms, bookingsByRoomId, knownRoomIds, bookings) {
+        val roomsFromCatalog = rooms
+            .sortedBy { it.name.lowercase() }
+            .map { room ->
+                DayRoomBookings(
+                    roomId = room.id,
+                    roomName = room.name,
+                    bookings = bookingsByRoomId[room.id]
+                        .orEmpty()
+                        .sortedBy { it.safeBookingTimeSortKey() }
+                )
+            }
+
+        val missingRooms = bookings
+            .filter { it.roomId !in knownRoomIds }
+            .groupBy { it.roomId to it.roomName }
+            .values
+            .map { roomBookings ->
+                val firstBooking = roomBookings.first()
+                DayRoomBookings(
+                    roomId = firstBooking.roomId,
+                    roomName = firstBooking.roomName,
+                    bookings = roomBookings.sortedBy { it.safeBookingTimeSortKey() }
+                )
+            }
+            .sortedBy { it.roomName.lowercase() }
+
+        roomsFromCatalog + missingRooms
+    }
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -532,7 +489,7 @@ fun DayBookingsView(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (bookings.isEmpty()) {
+        if (dayRooms.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -558,14 +515,83 @@ fun DayBookingsView(
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(bookings.sortedBy { it.safeBookingTimeSortKey() }) { booking ->
-                    DayBookingCard(
-                        booking = booking,
-                        onClick = { onBookingClick(booking) },
-                        onEdit = { onEditBooking(booking) },
-                        onDelete = { onDeleteBooking(booking) },
-                        onChangeStatus = { onChangeStatus(booking) }
+                items(
+                    items = dayRooms,
+                    key = { it.roomId }
+                ) { roomData ->
+                    DayRoomBookingsCard(
+                        roomId = roomData.roomId,
+                        roomName = roomData.roomName,
+                        bookings = roomData.bookings,
+                        onCreateBookingForRoom = { roomId ->
+                            onCreateBookingForRoomDate(roomId, date)
+                        },
+                        onEditBooking = onEditBooking,
+                        onDeleteBooking = onDeleteBooking
                     )
+                }
+            }
+        }
+    }
+}
+
+private data class DayRoomBookings(
+    val roomId: Int,
+    val roomName: String,
+    val bookings: List<BookingResponse>
+)
+
+@Composable
+private fun DayRoomBookingsCard(
+    roomId: Int,
+    roomName: String,
+    bookings: List<BookingResponse>,
+    onCreateBookingForRoom: (roomId: Int) -> Unit,
+    onEditBooking: (BookingResponse) -> Unit,
+    onDeleteBooking: (BookingResponse) -> Unit
+) {
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = null
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = roomName.uppercase(),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF111111)
+            )
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (bookings.isEmpty()) {
+                    IconButton(
+                        onClick = { onCreateBookingForRoom(roomId) },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AddCircle,
+                            contentDescription = "Create booking",
+                            tint = PrimaryGreen
+                        )
+                    }
+                }
+            }
+        }
+
+        if (bookings.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(1.dp))
+            bookings.forEachIndexed { index, booking ->
+                DayBookingCard(
+                    booking = booking,
+                    onEdit = { onEditBooking(booking) },
+                    onDelete = { onDeleteBooking(booking) }
+                )
+                if (index < bookings.lastIndex) {
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
             }
         }
@@ -575,134 +601,56 @@ fun DayBookingsView(
 @Composable
 fun DayBookingCard(
     booking: BookingResponse,
-    onClick: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onChangeStatus: () -> Unit
+    onDelete: () -> Unit
 ) {
-    val currentStatus = booking.safeStatus()
-    val statusColor = when (currentStatus) {
-        BookingStatus.KUTILMOQDA -> StatusPending
-        BookingStatus.MUVAFFAQIYATLI -> StatusSuccessful
-        BookingStatus.BEKOR_QILINDI -> StatusCancelled
-    }
-
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
+        contentPadding = 8.dp,
         onClick = null
     ) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                // Time
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.width(70.dp)
-                ) {
-                    Text(
-                        text = booking.safeBookingTimeDisplay(),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryGreenDark
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(statusColor)
-                    )
-                }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = booking.safeDescription(),
+                fontSize = 12.sp,
+                color = TextPrimary,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
 
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Details
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = booking.safeRoomNameUpper(),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = booking.safeDescription(),
-                        fontSize = 12.sp,
-                        color = TextPrimary,
-                        maxLines = 2
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Status badge
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(statusColor.copy(alpha = 0.15f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = currentStatus.getDisplayName(),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = statusColor
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.width(6.dp))
 
             // Action buttons
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Status change button
-                IconButton(
-                    onClick = onChangeStatus,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ChangeCircle,
-                        contentDescription = "Change Status",
-                        tint = PrimaryGreen,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(4.dp))
-
                 // Edit button
                 IconButton(
                     onClick = onEdit,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(30.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "Edit",
                         tint = PrimaryGreen,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
-
-                Spacer(modifier = Modifier.width(4.dp))
 
                 // Delete button
                 IconButton(
                     onClick = onDelete,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(30.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Delete",
                         tint = ErrorRed,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
@@ -718,19 +666,9 @@ private fun BookingResponse.safeBookingTimeSortKey(): String {
     return (this.bookingTime as? String).orEmpty()
 }
 
-private fun BookingResponse.safeBookingTimeDisplay(): String {
-    val raw = (this.bookingTime as? String).orEmpty().trim()
-    if (raw.isEmpty()) return "--:--"
-    return if (raw.length >= 5) raw.substring(0, 5) else raw
-}
-
 private fun BookingResponse.safeDescription(): String {
     val desc = this.description?.trim().orEmpty()
     if (desc.isNotEmpty()) return desc
     val food = (this.foodDescription as? String).orEmpty().trim()
     return if (food.isNotEmpty()) food else "Tavsif yo'q"
-}
-
-private fun BookingResponse.safeRoomNameUpper(): String {
-    return this.roomName.uppercase()
 }

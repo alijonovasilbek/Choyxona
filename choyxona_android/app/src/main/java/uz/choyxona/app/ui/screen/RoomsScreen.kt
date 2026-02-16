@@ -273,23 +273,6 @@ fun RoomCard(
                 maxLines = 1
             )
 
-            // Capacity
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.People,
-                    contentDescription = "Capacity",
-                    tint = TextSecondary,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "${room.capacity} kishi",
-                    fontSize = 11.sp,
-                    color = TextSecondary
-                )
-            }
 
             // Status Badge
             Box(

@@ -15,6 +15,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import uz.choyxona.app.data.local.TokenManager
+import uz.choyxona.app.data.model.FilialInfo
+import uz.choyxona.app.data.repository.AuthRepository
 import uz.choyxona.app.data.repository.BookingRepository
 import uz.choyxona.app.data.repository.ReportRepository
 import uz.choyxona.app.data.repository.RoomRepository
@@ -165,6 +167,7 @@ fun ChoyxonaApp(
         composable("weekly_bookings") {
             WeeklyBookingsScreen(
                 bookings = mainUiState.bookings,
+                rooms = mainUiState.rooms,
                 isLoading = mainUiState.isLoading,
                 onRefresh = {
                     mainViewModel.loadBookings()
@@ -177,6 +180,9 @@ fun ChoyxonaApp(
                 },
                 onCreateBooking = {
                     navController.navigate("create_booking")
+                },
+                onCreateBookingForRoomDate = { roomId, date ->
+                    navController.navigate("create_booking?roomId=$roomId&date=$date")
                 },
                 onEditBooking = { booking ->
                     navController.navigate("edit_booking/${booking.id}")
@@ -192,32 +198,32 @@ fun ChoyxonaApp(
                             }
                         }
                     }
-                },
-                onUpdateStatus = { booking, status, totalAmount, cancellationReason ->
-                    scope.launch {
-                        val token = tokenManager.accessToken.first()
-                        if (token != null) {
-                            val repository = BookingRepository()
-                            val result = repository.updateBookingStatus(
-                                token = token,
-                                bookingId = booking.id,
-                                status = status,
-                                totalAmount = totalAmount,
-                                cancellationReason = cancellationReason
-                            )
-                            if (result.isSuccess) {
-                                mainViewModel.loadBookings()
-                            }
-                        }
-                    }
                 }
             )
         }
 
         // ==================== CREATE BOOKING ====================
-        composable("create_booking") {
+        composable(
+            route = "create_booking?roomId={roomId}&date={date}",
+            arguments = listOf(
+                navArgument("roomId") {
+                    type = NavType.IntType
+                    defaultValue = -1
+                },
+                navArgument("date") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
             var isLoading by remember { mutableStateOf(false) }
             var error by remember { mutableStateOf<String?>(null) }
+            val initialRoomId = backStackEntry.arguments
+                ?.getInt("roomId")
+                ?.takeIf { it > 0 }
+            val initialDate = backStackEntry.arguments
+                ?.getString("date")
+                ?.takeIf { it.isNotBlank() }
 
             LaunchedEffect(activeFilialId) {
                 mainViewModel.loadRooms()
@@ -225,6 +231,8 @@ fun ChoyxonaApp(
 
             CreateBookingScreen(
                 rooms = mainUiState.rooms,
+                initialRoomId = initialRoomId,
+                initialDate = initialDate,
                 onCreateBooking = { roomId, date, description ->
                     scope.launch {
                         isLoading = true
@@ -444,10 +452,41 @@ fun ChoyxonaApp(
 
         // ==================== CREATE USER ====================
         composable("create_user") {
+            var createUserFilials by remember { mutableStateOf<List<FilialInfo>>(emptyList()) }
+
+            LaunchedEffect(
+                uiState.userInfo,
+                uiState.availableFilials,
+                uiState.currentUser?.filialId,
+                uiState.currentUser?.filialName
+            ) {
+                val fromAuthState = uiState.userInfo?.availableFilials?.takeIf { it.isNotEmpty() }
+                    ?: uiState.availableFilials.takeIf { it.isNotEmpty() }
+
+                createUserFilials = if (fromAuthState != null) {
+                    fromAuthState
+                } else {
+                    val fromApi = AuthRepository().getAvailableFilials().getOrNull().orEmpty()
+                    if (fromApi.isNotEmpty()) {
+                        fromApi
+                    } else {
+                        listOfNotNull(
+                            uiState.currentUser?.filialId?.let { filialId ->
+                                FilialInfo(
+                                    id = filialId,
+                                    name = uiState.currentUser?.filialName ?: "Filial #$filialId"
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+
             CreateUserScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
+                availableFilials = createUserFilials,
                 onCreateUser = { fullName, phone, username, password, filialId, roles ->
                     scope.launch {
                         val repository = UserRepository()

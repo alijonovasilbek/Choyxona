@@ -47,7 +47,7 @@ class AuthViewModel(
                     if (result.isSuccess) {
                         val user = result.getOrNull()
                         if (user != null) {
-                            val needsSelection = isAdminOrSuperAdmin(user.roles) && user.filialId == null
+                            val needsSelection = isAdminOrSuperAdmin(user.roles)
                             if (needsSelection) {
                                 val filialsResult = authRepository.getAvailableFilials()
                                 _uiState.value = AuthUiState(
@@ -107,8 +107,11 @@ class AuthViewModel(
                     val userInfo = tokenResponse.userInfo
 
                     // Check if user needs to select filial
-                    val needsSelection = !userInfo.isOshpaz &&
-                            userInfo.activeFilialId == null
+                    val needsSelection = if (isAdminOrSuperAdmin(userInfo.roles)) {
+                        true
+                    } else {
+                        !userInfo.isOshpaz && userInfo.activeFilialId == null
+                    }
 
                     if (needsSelection) {
                         // Admin/Superadmin with multiple filials - need selection
@@ -249,7 +252,9 @@ class AuthViewModel(
 
     private fun isAdminOrSuperAdmin(roles: List<String>): Boolean {
         return roles.any {
-            it.equals("admin", ignoreCase = true) || it.equals("superadmin", ignoreCase = true)
+            it.equals("admin", ignoreCase = true) ||
+                it.equals("superadmin", ignoreCase = true) ||
+                it.equals("superuser", ignoreCase = true)
         }
     }
 }

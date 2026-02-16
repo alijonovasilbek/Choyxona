@@ -64,8 +64,9 @@ class BookingRepository {
                 val parsed = gson.fromJson(response.body(), BookingResponse::class.java)
                 Result.success(parsed)
             } else {
+                val backendMessage = response.errorBody()?.string()
                 Result.failure(
-                    Exception(response.errorBody()?.string() ?: "Failed to create booking: ${response.message()}")
+                    Exception(localizeBookingError(backendMessage, "Bron yaratib bo'lmadi"))
                 )
             }
         } catch (e: Exception) {
@@ -91,7 +92,10 @@ class BookingRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to update booking: ${response.message()}"))
+                val backendMessage = response.errorBody()?.string()
+                Result.failure(
+                    Exception(localizeBookingError(backendMessage, "Bron yangilanmadi"))
+                )
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -116,7 +120,10 @@ class BookingRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to update booking status: ${response.message()}"))
+                val backendMessage = response.errorBody()?.string()
+                Result.failure(
+                    Exception(localizeBookingError(backendMessage, "Bron holatini yangilab bo'lmadi"))
+                )
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -130,12 +137,41 @@ class BookingRepository {
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
+                val backendMessage = response.errorBody()?.string()
                 Result.failure(
-                    Exception(response.errorBody()?.string() ?: "Failed to delete booking: ${response.message()}")
+                    Exception(localizeBookingError(backendMessage, "Bron o'chirib bo'lmadi"))
                 )
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    private fun localizeBookingError(rawMessage: String?, fallbackUz: String): String {
+        val message = extractServerMessage(rawMessage).ifBlank { fallbackUz }
+        val normalized = message.lowercase()
+
+        return when {
+            normalized.contains("room is already") ||
+                normalized.contains("already booked") ||
+                normalized.contains("already reserved") ||
+                normalized.contains("already occupied") -> "Bu xonaga bron qilingan"
+            else -> message
+        }
+    }
+
+    private fun extractServerMessage(rawMessage: String?): String {
+        if (rawMessage.isNullOrBlank()) return ""
+        val trimmed = rawMessage.trim()
+
+        return runCatching {
+            val asMap = gson.fromJson(trimmed, Map::class.java)
+            val detail = asMap["detail"]?.toString()
+            val message = asMap["message"]?.toString()
+            val error = asMap["error"]?.toString()
+            detail ?: message ?: error ?: trimmed
+        }.getOrElse {
+            trimmed
         }
     }
 }
