@@ -2,6 +2,7 @@ package uz.choyxona.app.data.api
 
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
+import com.google.gson.JsonObject
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -16,26 +17,33 @@ import java.util.concurrent.TimeUnit
 // ==================== API INTERFACES ====================
 
 interface AuthService {
-    @FormUrlEncoded
     @POST("auth/login")
     suspend fun login(
-        @Field("username") username: String,
-        @Field("password") password: String,
-        @Field("grant_type") grantType: String = "password"
+        @Body request: UserLoginRequest
     ): Response<TokenResponse>
-
 
     @POST("auth/register")
     suspend fun register(@Body request: UserRegisterRequest): Response<UserResponse>
 
     @GET("auth/me")
     suspend fun getCurrentUser(@Header("Authorization") token: String): Response<UserResponse>
+
+    @POST("auth/switch-filial")
+    suspend fun switchFilial(
+        @Header("Authorization") token: String,
+        @Query("filial_id") filialId: Int
+    ): Response<TokenResponse>
+
+    @GET("auth/available-filials")
+    suspend fun getAvailableFilials(): Response<AvailableFilialsResponse>
 }
+
 
 interface RoomService {
     @GET("rooms")
     suspend fun getAllRooms(
         @Header("Authorization") token: String,
+        @Query("filial_id") filialId: Int? = null,
         @Query("include_inactive") includeInactive: Boolean = false
     ): Response<List<RoomResponse>>
 
@@ -65,12 +73,14 @@ interface RoomService {
     ): Response<Unit>
 }
 
+
 interface BookingService {
     @GET("bookings")
     suspend fun getAllBookings(
         @Header("Authorization") token: String,
         @Query("booking_date") bookingDate: String? = null,
         @Query("room_id") roomId: Int? = null,
+        @Query("filial_id") filialId: Int? = null,
         @Query("status_filter") statusFilter: String? = null
     ): Response<List<BookingResponse>>
 
@@ -90,7 +100,7 @@ interface BookingService {
     suspend fun createBooking(
         @Header("Authorization") token: String,
         @Body request: BookingCreateRequest
-    ): Response<BookingResponse>
+    ): Response<JsonObject>
 
     @PUT("bookings/{booking_id}")
     suspend fun updateBooking(
@@ -218,3 +228,6 @@ object ApiClient {
     val reports: ReportService = retrofit.create(ReportService::class.java)
     val notifications: NotificationApi = retrofit.create(NotificationApi::class.java)
 }
+
+
+

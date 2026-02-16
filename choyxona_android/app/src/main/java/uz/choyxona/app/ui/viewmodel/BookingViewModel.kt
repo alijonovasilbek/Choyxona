@@ -52,7 +52,12 @@ class BookingViewModel(
                 return@launch
             }
 
-            val result = bookingRepository.getAllBookings(token, bookingDate, roomId, statusFilter)
+            val result = bookingRepository.getAllBookings(
+                token = token,
+                bookingDate = bookingDate,
+                roomId = roomId,
+                statusFilter = statusFilter
+            )
             if (result.isSuccess) {
                 _uiState.value = BookingUiState(
                     bookings = result.getOrNull() ?: emptyList(),

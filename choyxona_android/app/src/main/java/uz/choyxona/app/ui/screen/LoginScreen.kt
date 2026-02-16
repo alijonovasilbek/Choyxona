@@ -43,8 +43,8 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     val uiState by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(uiState.isLoggedIn) {
-        if (uiState.isLoggedIn) {
+    LaunchedEffect(uiState.isLoggedIn, uiState.needsFilialSelection) {
+        if (uiState.isLoggedIn || uiState.needsFilialSelection) {
             onLoginSuccess()
         }
     }

@@ -22,7 +22,6 @@ import uz.choyxona.app.ui.components.GlassTextField
 import uz.choyxona.app.ui.components.LiquidGlassCard
 import uz.choyxona.app.ui.theme.*
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,11 +32,6 @@ fun EditBookingScreen(
     onUpdateBooking: (
         roomId: Int?,
         date: String?,
-        time: String?,
-        customerName: String?,
-        customerPhone: String?,
-        guestCount: Int?,
-        foodDescription: String?,
         description: String?
     ) -> Unit,
     onNavigateBack: () -> Unit,
@@ -46,23 +40,13 @@ fun EditBookingScreen(
 ) {
     var selectedRoom by remember { mutableStateOf(rooms.find { it.id == booking.roomId }) }
     var selectedDate by remember { mutableStateOf(LocalDate.parse(booking.bookingDate)) }
-    var selectedTime by remember { mutableStateOf(LocalTime.parse(booking.bookingTime)) }
-    var customerName by remember { mutableStateOf(booking.customerName) }
-    var customerPhone by remember { mutableStateOf(booking.customerPhone) }
-    var guestCount by remember { mutableStateOf(booking.guestCount.toString()) }
-    var foodDescription by remember { mutableStateOf(booking.foodDescription) }
     var description by remember { mutableStateOf(booking.description ?: "") }
 
     var showRoomPicker by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
-    var showTimePicker by remember { mutableStateOf(false) }
 
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = selectedDate.toEpochDay() * 24 * 60 * 60 * 1000
-    )
-    val timePickerState = rememberTimePickerState(
-        initialHour = selectedTime.hour,
-        initialMinute = selectedTime.minute
     )
 
     Box(
@@ -146,101 +130,32 @@ fun EditBookingScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Sana va vaqt
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    // Sana
+                    Text(
+                        text = "Sana",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Sana",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = TextSecondary
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            OutlinedButton(
-                                onClick = { showDatePicker = true },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CalendarMonth,
-                                    contentDescription = null,
-                                    tint = PrimaryGreen
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = selectedDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Vaqt",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = TextSecondary
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            OutlinedButton(
-                                onClick = { showTimePicker = true },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.AccessTime,
-                                    contentDescription = null,
-                                    tint = PrimaryGreen
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = selectedTime.format(DateTimeFormatter.ofPattern("HH:mm")),
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
+                        Icon(
+                            imageVector = Icons.Default.CalendarMonth,
+                            contentDescription = null,
+                            tint = PrimaryGreen
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = selectedDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Mijoz ma'lumotlari
-                    GlassTextField(
-                        value = customerName,
-                        onValueChange = { customerName = it },
-                        label = "Mijoz ismi",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    GlassTextField(
-                        value = customerPhone,
-                        onValueChange = { customerPhone = it },
-                        label = "Telefon raqami",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    GlassTextField(
-                        value = guestCount,
-                        onValueChange = { if (it.all { char -> char.isDigit() }) guestCount = it },
-                        label = "Odamlar soni",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    GlassTextField(
-                        value = foodDescription,
-                        onValueChange = { foodDescription = it },
-                        label = "Ovqat tavsifi",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
+                    // Tavsif
                     GlassTextField(
                         value = description,
                         onValueChange = { description = it },
@@ -262,18 +177,11 @@ fun EditBookingScreen(
                     GlassButton(
                         text = "Yangilash",
                         onClick = {
-                            // To'g'ri formatlash: yyyy-MM-dd va HH:mm
                             val formattedDate = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
-                            val formattedTime = selectedTime.format(DateTimeFormatter.ofPattern("HH:mm"))
 
                             onUpdateBooking(
-                                selectedRoom?.id,
+                                if (selectedRoom?.id != booking.roomId) selectedRoom?.id else null,
                                 if (formattedDate != booking.bookingDate) formattedDate else null,
-                                if (formattedTime != booking.bookingTime) formattedTime else null,
-                                if (customerName != booking.customerName) customerName else null,
-                                if (customerPhone != booking.customerPhone) customerPhone else null,
-                                guestCount.toIntOrNull()?.let { if (it != booking.guestCount) it else null },
-                                if (foodDescription != booking.foodDescription) foodDescription else null,
                                 if (description != booking.description) description.ifBlank { null } else null
                             )
                         },
@@ -304,7 +212,7 @@ fun EditBookingScreen(
                                 Icon(Icons.Default.MeetingRoom, null)
                                 Spacer(Modifier.width(8.dp))
                                 Text(room.name, modifier = Modifier.weight(1f))
-                                Text("${room.capacity} kishi", fontSize = 12.sp)
+                                Text(room.filialName ?: "", fontSize = 12.sp)
                             }
                         }
                     }
@@ -339,32 +247,6 @@ fun EditBookingScreen(
             ) {
                 DatePicker(state = datePickerState)
             }
-        }
-
-        // Time Picker Dialog
-        if (showTimePicker) {
-            AlertDialog(
-                onDismissRequest = { showTimePicker = false },
-                confirmButton = {
-                    TextButton(onClick = {
-                        selectedTime = LocalTime.of(
-                            timePickerState.hour,
-                            timePickerState.minute
-                        )
-                        showTimePicker = false
-                    }) {
-                        Text("OK")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showTimePicker = false }) {
-                        Text("Bekor qilish")
-                    }
-                },
-                text = {
-                    TimePicker(state = timePickerState)
-                }
-            )
         }
     }
 }

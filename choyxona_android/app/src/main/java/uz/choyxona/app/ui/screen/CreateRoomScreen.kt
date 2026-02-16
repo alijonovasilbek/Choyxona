@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uz.choyxona.app.ui.components.GlassButton
@@ -24,15 +23,14 @@ import uz.choyxona.app.ui.theme.*
 @Composable
 fun CreateRoomScreen(
     onNavigateBack: () -> Unit,
-    onCreateRoom: (name: String, description: String?, capacity: Int) -> Unit,
+    onCreateRoom: (name: String, description: String?, filialId: Int) -> Unit,
+    filialId: Int? = null, // Token'dan olingan filial_id
     isLoading: Boolean = false,
     error: String? = null
 ) {
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var capacity by remember { mutableStateOf("") }
     var nameError by remember { mutableStateOf(false) }
-    var capacityError by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -101,23 +99,6 @@ fun CreateRoomScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    GlassTextField(
-                        value = capacity,
-                        onValueChange = {
-                            if (it.all { char -> char.isDigit() } || it.isEmpty()) {
-                                capacity = it
-                                capacityError = false
-                            }
-                        },
-                        label = "Sig'im (odamlar soni) *",
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardType = KeyboardType.Number,
-                        isError = capacityError,
-                        errorMessage = if (capacityError) "Sig'imni kiriting" else ""
-                    )
-
                     if (error != null) {
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
@@ -133,19 +114,27 @@ fun CreateRoomScreen(
                         text = "Saqlash",
                         onClick = {
                             nameError = name.isBlank()
-                            capacityError = capacity.isBlank() || capacity.toIntOrNull() == null || capacity.toInt() <= 0
 
-                            if (!nameError && !capacityError) {
+                            if (!nameError && filialId != null) {
                                 onCreateRoom(
                                     name.trim(),
                                     description.trim().ifBlank { null },
-                                    capacity.toInt()
+                                    filialId
                                 )
                             }
                         },
                         isLoading = isLoading,
-                        enabled = !isLoading
+                        enabled = !isLoading && filialId != null
                     )
+
+                    if (filialId == null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Filial tanlanmagan",
+                            color = ErrorRed,
+                            fontSize = 12.sp
+                        )
+                    }
                 }
             }
         }

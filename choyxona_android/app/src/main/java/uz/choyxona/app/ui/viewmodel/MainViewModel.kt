@@ -17,6 +17,8 @@ import uz.choyxona.app.data.repository.RoomRepository
 import uz.choyxona.app.data.repository.UserRepository
 import uz.choyxona.app.ui.screen.DashboardStats
 import uz.choyxona.app.ui.screen.ReportStats
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 data class MainUiState(
     val isLoading: Boolean = false,
@@ -38,19 +40,16 @@ class MainViewModel(
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
-
-    private var currentToken: String? = null
+    private var activeFilialId: Int? = null
 
     init {
-        loadToken()
+        loadData()
     }
 
-    private fun loadToken() {
-        viewModelScope.launch {
-            currentToken = tokenManager.accessToken.first()
-            if (currentToken != null) {
-                loadData()
-            }
+    fun setActiveFilial(filialId: Int?) {
+        if (activeFilialId != filialId) {
+            activeFilialId = filialId
+            loadData()
         }
     }
 
@@ -65,8 +64,12 @@ class MainViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
 
-            currentToken?.let { token ->
-                val result = bookingRepository.getAllBookings(token)
+            val token = tokenManager.accessToken.first()
+            if (!token.isNullOrEmpty()) {
+                val result = bookingRepository.getAllBookings(
+                    token = token,
+                    filialId = activeFilialId
+                )
                 if (result.isSuccess) {
                     _uiState.value = _uiState.value.copy(
                         bookings = result.getOrNull() ?: emptyList(),
@@ -78,6 +81,11 @@ class MainViewModel(
                         error = result.exceptionOrNull()?.message
                     )
                 }
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Not authenticated"
+                )
             }
         }
     }
@@ -86,8 +94,12 @@ class MainViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
 
-            currentToken?.let { token ->
-                val result = roomRepository.getAllRooms(token)
+            val token = tokenManager.accessToken.first()
+            if (!token.isNullOrEmpty()) {
+                val result = roomRepository.getAllRooms(
+                    token = token,
+                    filialId = activeFilialId
+                )
                 if (result.isSuccess) {
                     _uiState.value = _uiState.value.copy(
                         rooms = result.getOrNull() ?: emptyList(),
@@ -99,6 +111,11 @@ class MainViewModel(
                         error = result.exceptionOrNull()?.message
                     )
                 }
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Not authenticated"
+                )
             }
         }
     }
@@ -107,7 +124,8 @@ class MainViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
 
-            currentToken?.let { token ->
+            val token = tokenManager.accessToken.first()
+            if (!token.isNullOrEmpty()) {
                 val result = userRepository.getAllUsers(token)
                 if (result.isSuccess) {
                     _uiState.value = _uiState.value.copy(
@@ -120,15 +138,30 @@ class MainViewModel(
                         error = result.exceptionOrNull()?.message
                     )
                 }
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Not authenticated"
+                )
             }
         }
     }
 
     fun loadStats() {
         viewModelScope.launch {
-            currentToken?.let { token ->
+            val token = tokenManager.accessToken.first()
+            if (!token.isNullOrEmpty()) {
+                val today = LocalDate.now()
+                val formatter = DateTimeFormatter.ISO_LOCAL_DATE
+                val dateFrom = today.withDayOfMonth(1).format(formatter)
+                val dateTo = today.format(formatter)
+
                 // Load dashboard stats
-                val result = reportRepository.getStats(token)
+                val result = reportRepository.getStats(
+                    token = token,
+                    dateFrom = dateFrom,
+                    dateTo = dateTo
+                )
                 if (result.isSuccess) {
                     val stats = result.getOrNull()
                     if (stats != null) {
@@ -155,6 +188,10 @@ class MainViewModel(
                         error = result.exceptionOrNull()?.message
                     )
                 }
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    error = "Not authenticated"
+                )
             }
         }
     }
@@ -167,7 +204,8 @@ class MainViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
 
-            currentToken?.let { token ->
+            val token = tokenManager.accessToken.first()
+            if (!token.isNullOrEmpty()) {
                 val result = roomRepository.deleteRoom(token, roomId)
 
                 if (result.isSuccess) {
@@ -179,6 +217,11 @@ class MainViewModel(
                         error = result.exceptionOrNull()?.message
                     )
                 }
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Not authenticated"
+                )
             }
         }
     }

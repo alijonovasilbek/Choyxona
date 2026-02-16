@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uz.choyxona.app.data.model.RoomResponse
@@ -26,16 +25,14 @@ import uz.choyxona.app.ui.theme.*
 fun EditRoomScreen(
     room: RoomResponse,
     onNavigateBack: () -> Unit,
-    onUpdateRoom: (roomId: Int, name: String, description: String?, capacity: Int, isActive: Boolean) -> Unit,
+    onUpdateRoom: (roomId: Int, name: String, description: String?, isActive: Boolean) -> Unit,
     isLoading: Boolean = false,
     error: String? = null
 ) {
     var name by remember { mutableStateOf(room.name) }
     var description by remember { mutableStateOf(room.description ?: "") }
-    var capacity by remember { mutableStateOf(room.capacity.toString()) }
     var isActive by remember { mutableStateOf(room.isActive) }
     var nameError by remember { mutableStateOf(false) }
-    var capacityError by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -106,23 +103,6 @@ fun EditRoomScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    GlassTextField(
-                        value = capacity,
-                        onValueChange = {
-                            if (it.all { char -> char.isDigit() } || it.isEmpty()) {
-                                capacity = it
-                                capacityError = false
-                            }
-                        },
-                        label = "Sig'im (odamlar soni) *",
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardType = KeyboardType.Number,
-                        isError = capacityError,
-                        errorMessage = if (capacityError) "Sig'imni kiriting" else ""
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
                     // Active/Inactive Switch
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -173,14 +153,12 @@ fun EditRoomScreen(
                         text = "Yangilash",
                         onClick = {
                             nameError = name.isBlank()
-                            capacityError = capacity.isBlank() || capacity.toIntOrNull() == null || capacity.toInt() <= 0
 
-                            if (!nameError && !capacityError) {
+                            if (!nameError) {
                                 onUpdateRoom(
                                     room.id,
                                     name.trim(),
                                     description.trim().ifBlank { null },
-                                    capacity.toInt(),
                                     isActive
                                 )
                             }

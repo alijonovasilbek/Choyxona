@@ -11,26 +11,30 @@ data class BookingResponse(
     val roomId: Int,
     @SerializedName("room_name")
     val roomName: String,
+    @SerializedName("filial_id")
+    val filialId: Int,
+    @SerializedName("filial_name")
+    val filialName: String? = null,
     @SerializedName("booking_date")
     val bookingDate: String,
     @SerializedName("booking_time")
-    val bookingTime: String,
+    val bookingTime: String = "00:00",
     @SerializedName("customer_name")
-    val customerName: String,
+    val customerName: String = "",
     @SerializedName("customer_phone")
-    val customerPhone: String,
+    val customerPhone: String = "",
     @SerializedName("guest_count")
-    val guestCount: Int,
+    val guestCount: Int = 0,
     @SerializedName("food_description")
-    val foodDescription: String,
-    @SerializedName("description")
-    val description: String? = null,
-    @SerializedName("status")
-    val status: BookingStatus,
+    val foodDescription: String = "",
     @SerializedName("total_amount")
     val totalAmount: Double? = null,
     @SerializedName("cancellation_reason")
     val cancellationReason: String? = null,
+    @SerializedName("description")
+    val description: String? = null,
+    @SerializedName("status")
+    val status: BookingStatus,
     @SerializedName("created_by")
     val createdBy: Int,
     @SerializedName("created_by_name")
@@ -46,16 +50,6 @@ data class BookingCreateRequest(
     val roomId: Int,
     @SerializedName("booking_date")
     val bookingDate: String,
-    @SerializedName("booking_time")
-    val bookingTime: String,
-    @SerializedName("customer_name")
-    val customerName: String,
-    @SerializedName("customer_phone")
-    val customerPhone: String,
-    @SerializedName("guest_count")
-    val guestCount: Int,
-    @SerializedName("food_description")
-    val foodDescription: String,
     @SerializedName("description")
     val description: String? = null
 )
@@ -65,16 +59,6 @@ data class BookingUpdateRequest(
     val roomId: Int? = null,
     @SerializedName("booking_date")
     val bookingDate: String? = null,
-    @SerializedName("booking_time")
-    val bookingTime: String? = null,
-    @SerializedName("customer_name")
-    val customerName: String? = null,
-    @SerializedName("customer_phone")
-    val customerPhone: String? = null,
-    @SerializedName("guest_count")
-    val guestCount: Int? = null,
-    @SerializedName("food_description")
-    val foodDescription: String? = null,
     @SerializedName("description")
     val description: String? = null
 )
@@ -90,27 +74,27 @@ data class BookingStatusUpdateRequest(
 
 enum class BookingStatus {
     @SerializedName("KUTILMOQDA")
-    PENDING,
+    KUTILMOQDA,
 
     @SerializedName("MUVAFFAQIYATLI")
-    SUCCESSFUL,
+    MUVAFFAQIYATLI,
 
     @SerializedName("BEKOR_QILINDI")
-    CANCELLED
+    BEKOR_QILINDI
 }
 
 fun BookingStatus.getDisplayName(): String {
     return when (this) {
-        BookingStatus.PENDING -> "Kutilmoqda"
-        BookingStatus.SUCCESSFUL -> "Muvaffaqiyatli"
-        BookingStatus.CANCELLED -> "Bekor qilindi"
+        BookingStatus.KUTILMOQDA -> "Kutilmoqda"
+        BookingStatus.MUVAFFAQIYATLI -> "Muvaffaqiyatli"
+        BookingStatus.BEKOR_QILINDI -> "Bekor qilindi"
     }
 }
 
 fun BookingStatus.getColorCode(): String {
     return when (this) {
-        BookingStatus.PENDING -> "#F59E0B" // Orange
-        BookingStatus.SUCCESSFUL -> "#10B981" // Green
-        BookingStatus.CANCELLED -> "#EF4444" // Red
+        BookingStatus.KUTILMOQDA -> "#F59E0B" // Orange
+        BookingStatus.MUVAFFAQIYATLI -> "#10B981" // Green
+        BookingStatus.BEKOR_QILINDI -> "#EF4444" // Red
     }
 }

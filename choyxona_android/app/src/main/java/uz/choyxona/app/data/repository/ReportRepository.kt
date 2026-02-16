@@ -18,7 +18,7 @@ class ReportRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.message()))
+                Result.failure(Exception(response.errorBody()?.string() ?: response.message()))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -36,7 +36,7 @@ class ReportRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.message()))
+                Result.failure(Exception(response.errorBody()?.string() ?: response.message()))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -50,7 +50,7 @@ class ReportRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.message()))
+                Result.failure(Exception(response.errorBody()?.string() ?: response.message()))
             }
         } catch (e: Exception) {
             Result.failure(e)

@@ -51,4 +51,9 @@ object RetrofitClient {
     val rooms: RoomService by lazy { retrofit.create(RoomService::class.java) }
     val bookings: BookingService by lazy { retrofit.create(BookingService::class.java) }
     val reports: ReportService by lazy { retrofit.create(ReportService::class.java) }
+
+    // Legacy aliases kept for existing callers
+    val userService: UserService by lazy { users }
+    val roomService: RoomService by lazy { rooms }
+    val bookingService: BookingService by lazy { bookings }
 }

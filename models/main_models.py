@@ -17,6 +17,7 @@ class BookingStatus(str, enum.Enum):
     KUTILMOQDA = "KUTILMOQDA"  # Pending
     MUVAFFAQIYATLI = "MUVAFFAQIYATLI"  # Successful
     BEKOR_QILINDI = "BEKOR_QILINDI"  # Cancelled
+    BOSH= "BOSH"
 
 
 # Filials (Branches) table

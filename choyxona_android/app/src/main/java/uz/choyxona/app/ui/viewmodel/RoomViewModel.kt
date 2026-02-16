@@ -50,12 +50,12 @@ class RoomViewModel(
     fun createRoom(
         name: String,
         description: String?,
-        capacity: Int
+        filialId: Int
     ) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
-            roomRepository.createRoom(token, name, description, capacity).fold(
+            roomRepository.createRoom(token, name, description, filialId).fold(
                 onSuccess = {
                     loadRooms()
                     _uiState.value = _uiState.value.copy(isLoading = false)

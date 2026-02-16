@@ -68,24 +68,67 @@ fun ChoyxonaApp(
 
     val uiState by authViewModel.uiState.collectAsState()
     val mainUiState by mainViewModel.uiState.collectAsState()
+    val activeFilialId = uiState.currentUser?.filialId ?: uiState.userInfo?.activeFilialId
+
+    LaunchedEffect(activeFilialId) {
+        mainViewModel.setActiveFilial(activeFilialId)
+    }
 
     // Navigation
     NavHost(
         navController = navController,
-        startDestination = if (uiState.isLoggedIn) "dashboard" else "login"
+        startDestination = if (uiState.isLoggedIn) {
+            if (uiState.needsFilialSelection) "filial_selection" else "dashboard"
+        } else "login"
     ) {
+        // ==================== LOGIN ====================
         composable("login") {
             LoginScreen(
                 viewModel = authViewModel,
                 onLoginSuccess = {
-                    mainViewModel.loadData()
-                    navController.navigate("dashboard") {
-                        popUpTo("login") { inclusive = true }
+                    val latestState = authViewModel.uiState.value
+                    // Check if filial selection needed
+                    if (latestState.needsFilialSelection) {
+                        navController.navigate("filial_selection") {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    } else {
+                        mainViewModel.loadData()
+                        navController.navigate("dashboard") {
+                            popUpTo("login") { inclusive = true }
+                        }
                     }
                 }
             )
         }
 
+        // ==================== FILIAL SELECTION ====================
+        composable("filial_selection") {
+            FilialSelectionScreen(
+                filials = uiState.availableFilials,
+                currentFilialId = activeFilialId,
+                onFilialSelected = { filialId ->
+                    authViewModel.selectFilial(filialId)
+                },
+                onLogout = {
+                    authViewModel.logout()
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+
+            LaunchedEffect(uiState.isLoggedIn, uiState.needsFilialSelection) {
+                if (uiState.isLoggedIn && !uiState.needsFilialSelection) {
+                    mainViewModel.loadData()
+                    navController.navigate("dashboard") {
+                        popUpTo("filial_selection") { inclusive = true }
+                    }
+                }
+            }
+        }
+
+        // ==================== DASHBOARD ====================
         composable("dashboard") {
             DashboardScreen(
                 currentUser = uiState.currentUser,
@@ -102,6 +145,13 @@ fun ChoyxonaApp(
                 onNavigateToUsers = {
                     navController.navigate("users")
                 },
+                onSwitchFilial = {
+                    authViewModel.startFilialSelection()
+                    navController.navigate("filial_selection")
+                },
+                canSwitchFilial = uiState.currentUser?.roles?.any {
+                    it.equals("admin", ignoreCase = true) || it.equals("superadmin", ignoreCase = true)
+                } == true,
                 onLogout = {
                     authViewModel.logout()
                     navController.navigate("login") {
@@ -111,7 +161,7 @@ fun ChoyxonaApp(
             )
         }
 
-        // Haftalik kalendar ko'rinishi
+        // ==================== WEEKLY BOOKINGS ====================
         composable("weekly_bookings") {
             WeeklyBookingsScreen(
                 bookings = mainUiState.bookings,
@@ -164,14 +214,18 @@ fun ChoyxonaApp(
             )
         }
 
-        // Bron yaratish
+        // ==================== CREATE BOOKING ====================
         composable("create_booking") {
             var isLoading by remember { mutableStateOf(false) }
             var error by remember { mutableStateOf<String?>(null) }
 
+            LaunchedEffect(activeFilialId) {
+                mainViewModel.loadRooms()
+            }
+
             CreateBookingScreen(
                 rooms = mainUiState.rooms,
-                onCreateBooking = { roomId, date, time, customerName, customerPhone, guestCount, foodDescription, description ->
+                onCreateBooking = { roomId, date, description ->
                     scope.launch {
                         isLoading = true
                         error = null
@@ -182,16 +236,11 @@ fun ChoyxonaApp(
                                 token = token,
                                 roomId = roomId,
                                 bookingDate = date,
-                                bookingTime = time,
-                                customerName = customerName,
-                                customerPhone = customerPhone,
-                                guestCount = guestCount,
-                                foodDescription = foodDescription,
                                 description = description
                             )
                             isLoading = false
                             if (result.isSuccess) {
-                                mainViewModel.loadData()  // TO'G'RILANDI: Barcha ma'lumotni qayta yuklash
+                                mainViewModel.loadData()
                                 navController.popBackStack()
                             } else {
                                 error = result.exceptionOrNull()?.message ?: "Bron yaratib bo'lmadi"
@@ -210,7 +259,7 @@ fun ChoyxonaApp(
             )
         }
 
-        // Bron tahrirlash
+        // ==================== EDIT BOOKING ====================
         composable(
             route = "edit_booking/{bookingId}",
             arguments = listOf(navArgument("bookingId") { type = NavType.IntType })
@@ -225,7 +274,7 @@ fun ChoyxonaApp(
                 EditBookingScreen(
                     booking = booking,
                     rooms = mainUiState.rooms,
-                    onUpdateBooking = { roomId, date, time, customerName, customerPhone, guestCount, foodDescription, description ->
+                    onUpdateBooking = { roomId, date, description ->
                         scope.launch {
                             isLoading = true
                             error = null
@@ -237,11 +286,6 @@ fun ChoyxonaApp(
                                     bookingId = bookingId,
                                     roomId = roomId,
                                     bookingDate = date,
-                                    bookingTime = time,
-                                    customerName = customerName,
-                                    customerPhone = customerPhone,
-                                    guestCount = guestCount,
-                                    foodDescription = foodDescription,
                                     description = description
                                 )
                                 isLoading = false
@@ -266,7 +310,7 @@ fun ChoyxonaApp(
             }
         }
 
-        // Xonalar
+        // ==================== ROOMS ====================
         composable("rooms") {
             RoomsScreen(
                 rooms = mainUiState.rooms,
@@ -292,18 +336,24 @@ fun ChoyxonaApp(
             )
         }
 
-        // Xona yaratish
+        // ==================== CREATE ROOM ====================
         composable("create_room") {
             CreateRoomScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onCreateRoom = { name, description, capacity ->
+                filialId = uiState.userInfo?.activeFilialId,
+                onCreateRoom = { name, description, filialId ->
                     scope.launch {
                         val repository = RoomRepository()
                         val token = tokenManager.accessToken.first()
                         if (token != null) {
-                            val result = repository.createRoom(token, name, description, capacity)
+                            val result = repository.createRoom(
+                                token = token,
+                                name = name,
+                                description = description,
+                                filialId = filialId
+                            )
                             if (result.isSuccess) {
                                 mainViewModel.loadRooms()
                                 navController.popBackStack()
@@ -314,7 +364,7 @@ fun ChoyxonaApp(
             )
         }
 
-        // Xona tahrirlash
+        // ==================== EDIT ROOM ====================
         composable(
             route = "edit_room/{roomId}",
             arguments = listOf(navArgument("roomId") { type = NavType.IntType })
@@ -328,7 +378,7 @@ fun ChoyxonaApp(
                     onNavigateBack = {
                         navController.popBackStack()
                     },
-                    onUpdateRoom = { id, name, description, capacity, isActive ->
+                    onUpdateRoom = { id, name, description, isActive ->
                         scope.launch {
                             val repository = RoomRepository()
                             val token = tokenManager.accessToken.first()
@@ -338,7 +388,6 @@ fun ChoyxonaApp(
                                     roomId = id,
                                     name = name,
                                     description = description,
-                                    capacity = capacity,
                                     isActive = isActive
                                 )
                                 if (result.isSuccess) {
@@ -352,7 +401,7 @@ fun ChoyxonaApp(
             }
         }
 
-        // Hisobotlar
+        // ==================== REPORTS ====================
         composable("reports") {
             ReportsScreen(
                 isLoading = mainUiState.isLoading,
@@ -363,7 +412,7 @@ fun ChoyxonaApp(
             )
         }
 
-        // Foydalanuvchilar (faqat superadmin uchun)
+        // ==================== USERS ====================
         composable("users") {
             UsersScreen(
                 users = mainUiState.users,
@@ -393,13 +442,13 @@ fun ChoyxonaApp(
             )
         }
 
-        // Foydalanuvchi yaratish
+        // ==================== CREATE USER ====================
         composable("create_user") {
             CreateUserScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onCreateUser = { fullName, phone, username, password, telegramChatId, roles ->
+                onCreateUser = { fullName, phone, username, password, filialId, roles ->
                     scope.launch {
                         val repository = UserRepository()
                         val token = tokenManager.accessToken.first()
@@ -410,7 +459,7 @@ fun ChoyxonaApp(
                                 phone = phone,
                                 username = username,
                                 password = password,
-                                telegramChatId = telegramChatId,
+                                filialId = filialId,
                                 roles = roles
                             )
                             if (result.isSuccess) {
@@ -423,7 +472,7 @@ fun ChoyxonaApp(
             )
         }
 
-        // Foydalanuvchi tahrirlash
+        // ==================== EDIT USER ====================
         composable(
             route = "edit_user/{userId}",
             arguments = listOf(navArgument("userId") { type = NavType.IntType })
@@ -437,7 +486,7 @@ fun ChoyxonaApp(
                     onNavigateBack = {
                         navController.popBackStack()
                     },
-                    onUpdateUser = { id, fullName, phone, telegramChatId, isActive, roles ->
+                    onUpdateUser = { id, fullName, phone, filialId, isActive, roles ->
                         scope.launch {
                             val repository = UserRepository()
                             val token = tokenManager.accessToken.first()
@@ -447,7 +496,7 @@ fun ChoyxonaApp(
                                     userId = id,
                                     fullName = fullName,
                                     phone = phone,
-                                    telegramChatId = telegramChatId,
+                                    filialId = filialId,
                                     isActive = isActive,
                                     roles = roles
                                 )

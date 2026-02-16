@@ -41,6 +41,8 @@ fun DashboardScreen(
     onNavigateToRooms: () -> Unit,
     onNavigateToReports: () -> Unit,
     onNavigateToUsers: () -> Unit,
+    onSwitchFilial: () -> Unit,
+    canSwitchFilial: Boolean = false,
     onLogout: () -> Unit
 ) {
     Box(
@@ -82,25 +84,50 @@ fun DashboardScreen(
                     )
                 }
 
-                IconButton(
-                    onClick = onLogout,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    PrimaryGreen,
-                                    PrimaryGreenDark
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (canSwitchFilial) {
+                        IconButton(
+                            onClick = onSwitchFilial,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(
+                                            PrimaryGreen,
+                                            PrimaryGreenDark
+                                        )
+                                    )
+                                )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Store,
+                                contentDescription = "Filialni tanlash",
+                                tint = Color.White
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = onLogout,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        PrimaryGreen,
+                                        PrimaryGreenDark
+                                    )
                                 )
                             )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ExitToApp,
+                            contentDescription = "Logout",
+                            tint = Color.White
                         )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ExitToApp,
-                        contentDescription = "Logout",
-                        tint = Color.White
-                    )
+                    }
                 }
             }
 

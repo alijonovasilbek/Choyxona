@@ -9,10 +9,14 @@ data class RoomResponse(
     val id: Int,
     @SerializedName("name")
     val name: String,
+    @SerializedName("filial_id")
+    val filialId: Int,
+    @SerializedName("filial_name")
+    val filialName: String? = null,
     @SerializedName("description")
     val description: String? = null,
     @SerializedName("capacity")
-    val capacity: Int,
+    val capacity: Int = 0,
     @SerializedName("is_active")
     val isActive: Boolean,
     @SerializedName("created_at")
@@ -24,10 +28,10 @@ data class RoomResponse(
 data class RoomCreateRequest(
     @SerializedName("name")
     val name: String,
+    @SerializedName("filial_id")
+    val filialId: Int,
     @SerializedName("description")
-    val description: String? = null,
-    @SerializedName("capacity")
-    val capacity: Int
+    val description: String? = null
 )
 
 data class RoomUpdateRequest(
@@ -35,8 +39,6 @@ data class RoomUpdateRequest(
     val name: String? = null,
     @SerializedName("description")
     val description: String? = null,
-    @SerializedName("capacity")
-    val capacity: Int? = null,
     @SerializedName("is_active")
     val isActive: Boolean? = null
 )

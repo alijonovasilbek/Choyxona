@@ -15,13 +15,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uz.choyxona.app.data.model.BookingResponse
 import uz.choyxona.app.data.model.BookingStatus
 import uz.choyxona.app.data.model.getDisplayName
-import uz.choyxona.app.ui.components.GlassTextField
 import uz.choyxona.app.ui.components.LiquidGlassCard
 import uz.choyxona.app.ui.theme.*
 
@@ -36,13 +34,11 @@ fun BookingDetailScreen(
     var showStatusDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var selectedStatus by remember { mutableStateOf(booking.status) }
-    var totalAmount by remember { mutableStateOf(booking.totalAmount?.toString() ?: "") }
-    var cancellationReason by remember { mutableStateOf(booking.cancellationReason ?: "") }
 
     val statusColor = when (booking.status) {
-        BookingStatus.PENDING -> StatusPending
-        BookingStatus.SUCCESSFUL -> StatusSuccessful
-        BookingStatus.CANCELLED -> StatusCancelled
+        BookingStatus.KUTILMOQDA -> StatusPending
+        BookingStatus.MUVAFFAQIYATLI -> StatusSuccessful
+        BookingStatus.BEKOR_QILINDI -> StatusCancelled
     }
 
     // Status Update Dialog
@@ -75,48 +71,12 @@ fun BookingDetailScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Conditional Fields
-                    when (selectedStatus) {
-                        BookingStatus.SUCCESSFUL -> {
-                            GlassTextField(
-                                value = totalAmount,
-                                onValueChange = {
-                                    if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) {
-                                        totalAmount = it
-                                    }
-                                },
-                                label = "Jami summa *",
-                                modifier = Modifier.fillMaxWidth(),
-                                keyboardType = KeyboardType.Decimal
-                            )
-                        }
-                        BookingStatus.CANCELLED -> {
-                            GlassTextField(
-                                value = cancellationReason,
-                                onValueChange = { cancellationReason = it },
-                                label = "Bekor qilish sababi *",
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                        else -> {}
-                    }
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val amount = when (selectedStatus) {
-                            BookingStatus.SUCCESSFUL -> totalAmount.toDoubleOrNull()
-                            else -> null
-                        }
-                        val reason = when (selectedStatus) {
-                            BookingStatus.CANCELLED -> cancellationReason.ifBlank { null }
-                            else -> null
-                        }
-
-                        onUpdateStatus(booking.id, selectedStatus, amount, reason)
+                        onUpdateStatus(booking.id, selectedStatus, null, null)
                         showStatusDialog = false
                     }
                 ) {
@@ -254,10 +214,9 @@ fun BookingDetailScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    InfoRow(label = "Xona", value = booking.roomName)
+                    InfoRow(label = "Xona", value = booking.roomName.uppercase())
                     InfoRow(label = "Sana", value = booking.bookingDate.toString())
                     InfoRow(label = "Vaqt", value = booking.bookingTime.toString())
-                    InfoRow(label = "Mijoz", value = booking.customerName)
                     InfoRow(label = "Telefon", value = booking.customerPhone)
                     InfoRow(label = "Mehmonlar", value = "${booking.guestCount} kishi")
                     InfoRow(label = "Ovqat", value = booking.foodDescription)
@@ -268,7 +227,7 @@ fun BookingDetailScreen(
                 }
 
                 // Financial Info (if successful)
-                if (booking.status == BookingStatus.SUCCESSFUL && booking.totalAmount != null) {
+                if (booking.status == BookingStatus.MUVAFFAQIYATLI && booking.totalAmount != null) {
                     LiquidGlassCard {
                         Text(
                             text = "Moliyaviy ma'lumot",
@@ -298,7 +257,7 @@ fun BookingDetailScreen(
                 }
 
                 // Cancellation Reason (if cancelled)
-                if (booking.status == BookingStatus.CANCELLED && !booking.cancellationReason.isNullOrBlank()) {
+                if (booking.status == BookingStatus.BEKOR_QILINDI && !booking.cancellationReason.isNullOrBlank()) {
                     LiquidGlassCard {
                         Text(
                             text = "Bekor qilish sababi",

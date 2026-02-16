@@ -111,22 +111,22 @@ fun BookingsScreen(
                 )
 
                 FilterChip(
-                    selected = selectedStatus == BookingStatus.PENDING,
-                    onClick = { selectedStatus = BookingStatus.PENDING },
+                    selected = selectedStatus == BookingStatus.KUTILMOQDA,
+                    onClick = { selectedStatus = BookingStatus.KUTILMOQDA },
                     label = { Text("Kutilmoqda") },
                     modifier = Modifier.weight(1f)
                 )
 
                 FilterChip(
-                    selected = selectedStatus == BookingStatus.SUCCESSFUL,
-                    onClick = { selectedStatus = BookingStatus.SUCCESSFUL },
+                    selected = selectedStatus == BookingStatus.MUVAFFAQIYATLI,
+                    onClick = { selectedStatus = BookingStatus.MUVAFFAQIYATLI },
                     label = { Text("Muvaffaqiyatli") },
                     modifier = Modifier.weight(1f)
                 )
 
                 FilterChip(
-                    selected = selectedStatus == BookingStatus.CANCELLED,
-                    onClick = { selectedStatus = BookingStatus.CANCELLED },
+                    selected = selectedStatus == BookingStatus.BEKOR_QILINDI,
+                    onClick = { selectedStatus = BookingStatus.BEKOR_QILINDI },
                     label = { Text("Bekor") },
                     modifier = Modifier.weight(1f)
                 )
@@ -187,9 +187,9 @@ fun BookingCard(
     onClick: () -> Unit
 ) {
     val statusColor = when (booking.status) {
-        BookingStatus.PENDING -> StatusPending
-        BookingStatus.SUCCESSFUL -> StatusSuccessful
-        BookingStatus.CANCELLED -> StatusCancelled
+        BookingStatus.KUTILMOQDA -> StatusPending
+        BookingStatus.MUVAFFAQIYATLI -> StatusSuccessful
+        BookingStatus.BEKOR_QILINDI -> StatusCancelled
     }
 
     GlassCard(
@@ -205,17 +205,19 @@ fun BookingCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = booking.customerName,
+                    text = booking.roomName.uppercase(),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
                 )
 
-                Text(
-                    text = booking.roomName,
-                    fontSize = 14.sp,
-                    color = TextSecondary
-                )
+                if (booking.customerName.isNotBlank()) {
+                    Text(
+                        text = booking.customerName,
+                        fontSize = 14.sp,
+                        color = TextSecondary
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -292,8 +294,13 @@ fun BookingCard(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        val descriptionText = booking.description
+            ?.takeIf { it.isNotBlank() }
+            ?: booking.foodDescription.takeIf { it.isNotBlank() }
+            ?: "Tavsif yo'q"
+
         Text(
-            text = booking.foodDescription,
+            text = descriptionText,
             fontSize = 14.sp,
             color = TextPrimary
         )

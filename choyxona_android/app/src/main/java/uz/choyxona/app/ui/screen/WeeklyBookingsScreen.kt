@@ -53,8 +53,6 @@ fun WeeklyBookingsScreen(
     var showStatusDialog by remember { mutableStateOf(false) }
     var selectedBooking by remember { mutableStateOf<BookingResponse?>(null) }
     var selectedStatus by remember { mutableStateOf<BookingStatus?>(null) }
-    var totalAmount by remember { mutableStateOf("") }
-    var cancellationReason by remember { mutableStateOf("") }
 
     // Hafta kunlari uchun bronlarni guruhlash
     val weekBookings = remember(bookings, currentWeekStart) {
@@ -75,9 +73,6 @@ fun WeeklyBookingsScreen(
                 selectedBooking = null
             },
             title = { Text("Bronni o'chirish") },
-            text = {
-                Text("${selectedBooking?.customerName} nomidagi bronni o'chirmoqchimisiz?")
-            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -109,8 +104,6 @@ fun WeeklyBookingsScreen(
                 showStatusDialog = false
                 selectedBooking = null
                 selectedStatus = null
-                totalAmount = ""
-                cancellationReason = ""
             },
             title = { Text("Bron holatini o'zgartirish") },
             text = {
@@ -141,59 +134,19 @@ fun WeeklyBookingsScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Conditional fields based on status
-                    when (selectedStatus) {
-                        BookingStatus.SUCCESSFUL -> {
-                            OutlinedTextField(
-                                value = totalAmount,
-                                onValueChange = {
-                                    if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) {
-                                        totalAmount = it
-                                    }
-                                },
-                                label = { Text("Jami summa *") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-                        }
-                        BookingStatus.CANCELLED -> {
-                            OutlinedTextField(
-                                value = cancellationReason,
-                                onValueChange = { cancellationReason = it },
-                                label = { Text("Bekor qilish sababi *") },
-                                modifier = Modifier.fillMaxWidth(),
-                                minLines = 2,
-                                maxLines = 3
-                            )
-                        }
-                        else -> {}
-                    }
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         selectedStatus?.let { status ->
-                            val amount = when (status) {
-                                BookingStatus.SUCCESSFUL -> totalAmount.toDoubleOrNull()
-                                else -> null
-                            }
-                            val reason = when (status) {
-                                BookingStatus.CANCELLED -> cancellationReason.ifBlank { null }
-                                else -> null
-                            }
-
                             selectedBooking?.let { booking ->
-                                onUpdateStatus(booking, status, amount, reason)
+                                onUpdateStatus(booking, status, null, null)
                             }
                         }
                         showStatusDialog = false
                         selectedBooking = null
                         selectedStatus = null
-                        totalAmount = ""
-                        cancellationReason = ""
                     },
                     enabled = selectedStatus != null
                 ) {
@@ -206,8 +159,6 @@ fun WeeklyBookingsScreen(
                         showStatusDialog = false
                         selectedBooking = null
                         selectedStatus = null
-                        totalAmount = ""
-                        cancellationReason = ""
                     }
                 ) {
                     Text("Bekor qilish")
@@ -312,9 +263,7 @@ fun WeeklyBookingsScreen(
                     },
                     onChangeStatus = { booking ->
                         selectedBooking = booking
-                        selectedStatus = booking.status ?: BookingStatus.PENDING
-                        totalAmount = booking.totalAmount?.toString() ?: ""
-                        cancellationReason = booking.cancellationReason ?: ""
+                        selectedStatus = booking.safeStatus()
                         showStatusDialog = true
                     }
                 )
@@ -396,8 +345,8 @@ fun WeekCalendarView(
                 date = date,
                 dayName = dayNames[date.dayOfWeek.value - 1],
                 bookingsCount = bookings.size,
-                pendingCount = bookings.count { (it.status ?: BookingStatus.PENDING) == BookingStatus.PENDING },
-                successfulCount = bookings.count { (it.status ?: BookingStatus.PENDING) == BookingStatus.SUCCESSFUL },
+                pendingCount = bookings.count { it.safeStatus() == BookingStatus.KUTILMOQDA },
+                successfulCount = bookings.count { it.safeStatus() == BookingStatus.MUVAFFAQIYATLI },
                 onClick = { onDayClick(date) }
             )
         }
@@ -609,7 +558,7 @@ fun DayBookingsView(
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(bookings.sortedBy { it.bookingTime }) { booking ->
+                items(bookings.sortedBy { it.safeBookingTimeSortKey() }) { booking ->
                     DayBookingCard(
                         booking = booking,
                         onClick = { onBookingClick(booking) },
@@ -631,11 +580,11 @@ fun DayBookingCard(
     onDelete: () -> Unit,
     onChangeStatus: () -> Unit
 ) {
-    val currentStatus = booking.status ?: BookingStatus.PENDING
+    val currentStatus = booking.safeStatus()
     val statusColor = when (currentStatus) {
-        BookingStatus.PENDING -> StatusPending
-        BookingStatus.SUCCESSFUL -> StatusSuccessful
-        BookingStatus.CANCELLED -> StatusCancelled
+        BookingStatus.KUTILMOQDA -> StatusPending
+        BookingStatus.MUVAFFAQIYATLI -> StatusSuccessful
+        BookingStatus.BEKOR_QILINDI -> StatusCancelled
     }
 
     GlassCard(
@@ -654,7 +603,7 @@ fun DayBookingCard(
                     modifier = Modifier.width(70.dp)
                 ) {
                     Text(
-                        text = booking.bookingTime.substring(0, 5),
+                        text = booking.safeBookingTimeDisplay(),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = PrimaryGreenDark
@@ -672,7 +621,7 @@ fun DayBookingCard(
                 // Details
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = booking.customerName,
+                        text = booking.safeRoomNameUpper(),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
@@ -680,44 +629,8 @@ fun DayBookingCard(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.MeetingRoom,
-                                contentDescription = "Room",
-                                tint = TextSecondary,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = booking.roomName,
-                                fontSize = 12.sp,
-                                color = TextSecondary
-                            )
-                        }
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.People,
-                                contentDescription = "Guests",
-                                tint = TextSecondary,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "${booking.guestCount}",
-                                fontSize = 12.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
                     Text(
-                        text = booking.foodDescription,
+                        text = booking.safeDescription(),
                         fontSize = 12.sp,
                         color = TextPrimary,
                         maxLines = 2
@@ -795,4 +708,29 @@ fun DayBookingCard(
             }
         }
     }
+}
+
+private fun BookingResponse.safeStatus(): BookingStatus {
+    return (this.status as? BookingStatus) ?: BookingStatus.KUTILMOQDA
+}
+
+private fun BookingResponse.safeBookingTimeSortKey(): String {
+    return (this.bookingTime as? String).orEmpty()
+}
+
+private fun BookingResponse.safeBookingTimeDisplay(): String {
+    val raw = (this.bookingTime as? String).orEmpty().trim()
+    if (raw.isEmpty()) return "--:--"
+    return if (raw.length >= 5) raw.substring(0, 5) else raw
+}
+
+private fun BookingResponse.safeDescription(): String {
+    val desc = this.description?.trim().orEmpty()
+    if (desc.isNotEmpty()) return desc
+    val food = (this.foodDescription as? String).orEmpty().trim()
+    return if (food.isNotEmpty()) food else "Tavsif yo'q"
+}
+
+private fun BookingResponse.safeRoomNameUpper(): String {
+    return this.roomName.uppercase()
 }

@@ -9,13 +9,18 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import uz.choyxona.app.data.local.TokenManager
 import uz.choyxona.app.data.model.UserResponse
+import uz.choyxona.app.data.model.UserInfo
+import uz.choyxona.app.data.model.FilialInfo
 import uz.choyxona.app.data.repository.AuthRepository
 
 data class AuthUiState(
     val isLoggedIn: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null,
-    val currentUser: UserResponse? = null
+    val currentUser: UserResponse? = null,
+    val userInfo: UserInfo? = null,
+    val needsFilialSelection: Boolean = false,
+    val availableFilials: List<FilialInfo> = emptyList()
 )
 
 class AuthViewModel(
@@ -42,11 +47,23 @@ class AuthViewModel(
                     if (result.isSuccess) {
                         val user = result.getOrNull()
                         if (user != null) {
-                            _uiState.value = AuthUiState(
-                                isLoggedIn = true,
-                                currentUser = user,
-                                isLoading = false
-                            )
+                            val needsSelection = isAdminOrSuperAdmin(user.roles) && user.filialId == null
+                            if (needsSelection) {
+                                val filialsResult = authRepository.getAvailableFilials()
+                                _uiState.value = AuthUiState(
+                                    isLoggedIn = false,
+                                    currentUser = user,
+                                    isLoading = false,
+                                    needsFilialSelection = true,
+                                    availableFilials = filialsResult.getOrNull() ?: emptyList()
+                                )
+                            } else {
+                                _uiState.value = AuthUiState(
+                                    isLoggedIn = true,
+                                    currentUser = user,
+                                    isLoading = false
+                                )
+                            }
                         }
                     } else {
                         _uiState.value = AuthUiState(
@@ -87,25 +104,52 @@ class AuthViewModel(
                         tokenResponse.refreshToken
                     )
 
-                    // Get current user
-                    val userResult = authRepository.getCurrentUser(tokenResponse.accessToken)
-                    if (userResult.isSuccess) {
-                        val user = userResult.getOrNull()
-                        if (user != null) {
-                            tokenManager.saveUserId(user.id.toString())
+                    val userInfo = tokenResponse.userInfo
+
+                    // Check if user needs to select filial
+                    val needsSelection = !userInfo.isOshpaz &&
+                            userInfo.activeFilialId == null
+
+                    if (needsSelection) {
+                        // Admin/Superadmin with multiple filials - need selection
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            needsFilialSelection = true,
+                            userInfo = userInfo,
+                            availableFilials = userInfo.availableFilials
+                        )
+                    } else {
+                        // Oshpaz or already has selected filial - proceed
+                        // Get current user details
+                        val userResult = authRepository.getCurrentUser(tokenResponse.accessToken)
+                        if (userResult.isSuccess) {
+                            val user = userResult.getOrNull()
+                            if (user != null) {
+                                tokenManager.saveUserId(user.id.toString())
+                                _uiState.value = AuthUiState(
+                                    isLoggedIn = true,
+                                    currentUser = user,
+                                    userInfo = userInfo,
+                                    isLoading = false
+                                )
+                            } else {
+                                _uiState.value = AuthUiState(
+                                    isLoading = false,
+                                    error = "Foydalanuvchi ma'lumoti bo'sh qaytdi"
+                                )
+                            }
+                        } else {
                             _uiState.value = AuthUiState(
-                                isLoggedIn = true,
-                                currentUser = user,
-                                isLoading = false
+                                isLoading = false,
+                                error = userResult.exceptionOrNull()?.message ?: "Foydalanuvchi ma'lumotini olishda xatolik"
                             )
                         }
-                    } else {
-                        _uiState.value = AuthUiState(
-                            isLoggedIn = true,
-                            isLoading = false,
-                            error = userResult.exceptionOrNull()?.message
-                        )
                     }
+                } else {
+                    _uiState.value = AuthUiState(
+                        isLoading = false,
+                        error = "Login javobi bo'sh qaytdi"
+                    )
                 }
             } else {
                 _uiState.value = AuthUiState(
@@ -116,17 +160,96 @@ class AuthViewModel(
         }
     }
 
+    fun selectFilial(filialId: Int) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+
+            val currentToken = tokenManager.accessToken.first()
+            if (currentToken != null) {
+                val result = authRepository.switchFilial(currentToken, filialId)
+                if (result.isSuccess) {
+                    val tokenResponse = result.getOrNull()
+                    if (tokenResponse != null) {
+                        // Update tokens
+                        tokenManager.saveTokens(
+                            tokenResponse.accessToken,
+                            tokenResponse.refreshToken
+                        )
+
+                        // Get current user
+                        val userResult = authRepository.getCurrentUser(tokenResponse.accessToken)
+                        if (userResult.isSuccess) {
+                            val user = userResult.getOrNull()
+                            if (user != null) {
+                                _uiState.value = AuthUiState(
+                                    isLoggedIn = true,
+                                    currentUser = user,
+                                    userInfo = tokenResponse.userInfo,
+                                    needsFilialSelection = false,
+                                    isLoading = false
+                                )
+                            } else {
+                                _uiState.value = _uiState.value.copy(
+                                    isLoading = false,
+                                    error = "Foydalanuvchi ma'lumoti bo'sh qaytdi"
+                                )
+                            }
+                        } else {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                error = userResult.exceptionOrNull()?.message ?: "Foydalanuvchi ma'lumotini olishda xatolik"
+                            )
+                        }
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = "Filial almashish javobi bo'sh qaytdi"
+                        )
+                    }
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.exceptionOrNull()?.message
+                    )
+                }
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Token topilmadi, qayta login qiling"
+                )
+            }
+        }
+    }
+
+    fun startFilialSelection() {
+        viewModelScope.launch {
+            val result = authRepository.getAvailableFilials()
+            _uiState.value = _uiState.value.copy(
+                needsFilialSelection = true,
+                availableFilials = result.getOrNull() ?: _uiState.value.availableFilials,
+                error = if (result.isFailure) result.exceptionOrNull()?.message else null
+            )
+        }
+    }
+
     fun logout() {
         viewModelScope.launch {
             tokenManager.clearTokens()
             _uiState.value = AuthUiState(
                 isLoggedIn = false,
-                currentUser = null
+                currentUser = null,
+                needsFilialSelection = false
             )
         }
     }
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    private fun isAdminOrSuperAdmin(roles: List<String>): Boolean {
+        return roles.any {
+            it.equals("admin", ignoreCase = true) || it.equals("superadmin", ignoreCase = true)
+        }
     }
 }

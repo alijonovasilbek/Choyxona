@@ -26,13 +26,13 @@ import uz.choyxona.app.ui.theme.*
 fun EditUserScreen(
     user: UserResponse,
     onNavigateBack: () -> Unit,
-    onUpdateUser: (userId: Int, fullName: String, phone: String, telegramChatId: String?, isActive: Boolean, roles: List<String>) -> Unit,
+    onUpdateUser: (userId: Int, fullName: String, phone: String, filialId: Int?, isActive: Boolean, roles: List<String>) -> Unit,
     isLoading: Boolean = false,
     error: String? = null
 ) {
     var fullName by remember { mutableStateOf(user.fullName) }
     var phone by remember { mutableStateOf(user.phone) }
-    var telegramChatId by remember { mutableStateOf(user.telegramChatId ?: "") }
+    var filialIdInput by remember { mutableStateOf(user.filialId?.toString() ?: "") }
     var isActive by remember { mutableStateOf(user.isActive) }
     var selectedRoles by remember { mutableStateOf(user.roles.toSet()) }
 
@@ -139,10 +139,11 @@ fun EditUserScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     GlassTextField(
-                        value = telegramChatId,
-                        onValueChange = { telegramChatId = it },
-                        label = "Telegram Chat ID (ixtiyoriy)",
-                        modifier = Modifier.fillMaxWidth()
+                        value = filialIdInput,
+                        onValueChange = { filialIdInput = it },
+                        label = "Filial ID (ixtiyoriy)",
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardType = KeyboardType.Number
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -256,7 +257,7 @@ fun EditUserScreen(
                                     user.id,
                                     fullName.trim(),
                                     phone.trim(),
-                                    telegramChatId.trim().ifBlank { null },
+                                    filialIdInput.trim().takeIf { it.isNotBlank() }?.toIntOrNull(),
                                     isActive,
                                     selectedRoles.toList()
                                 )

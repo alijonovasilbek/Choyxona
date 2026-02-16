@@ -15,6 +15,7 @@ class BookingStatusEnum(str, Enum):
     KUTILMOQDA = "KUTILMOQDA"
     MUVAFFAQIYATLI = "MUVAFFAQIYATLI"
     BEKOR_QILINDI = "BEKOR_QILINDI"
+    BOSH= "BOSH"
 
 
 # ==================== AUTH SCHEMAS ====================

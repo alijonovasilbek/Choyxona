@@ -24,7 +24,7 @@ import uz.choyxona.app.ui.theme.*
 @Composable
 fun CreateUserScreen(
     onNavigateBack: () -> Unit,
-    onCreateUser: (fullName: String, phone: String, username: String, password: String, telegramChatId: String?, roles: List<String>) -> Unit,
+    onCreateUser: (fullName: String, phone: String, username: String, password: String, filialId: Int?, roles: List<String>) -> Unit,
     isLoading: Boolean = false,
     error: String? = null
 ) {
@@ -32,7 +32,7 @@ fun CreateUserScreen(
     var phone by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var telegramChatId by remember { mutableStateOf("") }
+    var filialIdInput by remember { mutableStateOf("") }
     var selectedRoles by remember { mutableStateOf(setOf<String>()) }
 
     var nameError by remember { mutableStateOf(false) }
@@ -180,10 +180,11 @@ fun CreateUserScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     GlassTextField(
-                        value = telegramChatId,
-                        onValueChange = { telegramChatId = it },
-                        label = "Telegram Chat ID (ixtiyoriy)",
-                        modifier = Modifier.fillMaxWidth()
+                        value = filialIdInput,
+                        onValueChange = { filialIdInput = it },
+                        label = "Filial ID (ixtiyoriy)",
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardType = KeyboardType.Number
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -266,7 +267,7 @@ fun CreateUserScreen(
                                     formattedPhone, // Formatlanigan telefon yuboriladi
                                     username.trim(),
                                     password,
-                                    telegramChatId.trim().ifBlank { null },
+                                    filialIdInput.trim().takeIf { it.isNotBlank() }?.toIntOrNull(),
                                     selectedRoles.toList()
                                 )
                             }
