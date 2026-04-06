@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
-from datetime import date, datetime
+from datetime import date, datetime, time
 from enum import Enum
 
 
@@ -152,6 +152,51 @@ class BookingResponse(BaseModel):
     booking_date: date
     description: Optional[str] = None
     status: BookingStatusEnum
+    created_by: int
+    created_by_name: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class SaboyCreate(BaseModel):
+    filial_id: int
+    saboy_date: date
+    saboy_time: time
+    description: str = Field(..., min_length=1)
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Description cannot be empty")
+        return value
+
+
+class SaboyUpdate(BaseModel):
+    filial_id: Optional[int] = None
+    saboy_date: Optional[date] = None
+    saboy_time: Optional[time] = None
+    description: Optional[str] = Field(None, min_length=1)
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        value = value.strip()
+        if not value:
+            raise ValueError("Description cannot be empty")
+        return value
+
+
+class SaboyResponse(BaseModel):
+    id: int
+    filial_id: int
+    filial_name: Optional[str] = None
+    saboy_date: date
+    saboy_time: time
+    description: str
     created_by: int
     created_by_name: str
     created_at: datetime
