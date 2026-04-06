@@ -8,6 +8,7 @@ from routers.users_router import router as users_router
 from routers.filials_router import router as filials_router
 from routers.rooms_router import router as rooms_router
 from routers.bookings_router import router as bookings_router
+from routers.saboys_router import router as saboys_router
 from routers.reports_router import router as reports_router
 from routers.notifications_router import router as notifications_router
 from routers.local_notification_router import router as local_notification_router
@@ -74,6 +75,7 @@ app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(rooms_router)
 app.include_router(bookings_router)
+app.include_router(saboys_router)
 app.include_router(reports_router)
 # app.include_router(notifications_router)
 app.include_router(local_notification_router)

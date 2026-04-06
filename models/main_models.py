@@ -1,4 +1,4 @@
-from sqlalchemy import MetaData, Table, Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Enum, Text, Date
+from sqlalchemy import MetaData, Table, Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Enum, Text, Date, Time
 from datetime import datetime
 import enum
 from sqlalchemy import func
@@ -84,6 +84,21 @@ bookings = Table(
     Column('description', Text, nullable=True),  # Qo'shimcha ma'lumot
     Column('status', Enum(BookingStatus), default=BookingStatus.KUTILMOQDA),
     Column('created_by', Integer, ForeignKey('users.id'), nullable=False),  # Kim yaratdi
+    Column('created_at', DateTime, nullable=False, server_default=func.now()),
+    Column('updated_at', DateTime, nullable=False, server_default=func.now(), onupdate=func.now()),
+)
+
+
+# Saboys table
+saboys = Table(
+    'saboys',
+    metadata,
+    Column('id', Integer, primary_key=True, autoincrement=True),
+    Column('filial_id', Integer, ForeignKey('filials.id', ondelete='CASCADE'), nullable=False),
+    Column('saboy_date', Date, nullable=False),
+    Column('saboy_time', Time, nullable=False),
+    Column('description', Text, nullable=False),
+    Column('created_by', Integer, ForeignKey('users.id'), nullable=False),
     Column('created_at', DateTime, nullable=False, server_default=func.now()),
     Column('updated_at', DateTime, nullable=False, server_default=func.now(), onupdate=func.now()),
 )
