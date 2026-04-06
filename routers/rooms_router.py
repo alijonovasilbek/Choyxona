@@ -5,8 +5,38 @@ from models.main_models import rooms, filials, UserRole
 from schemas import RoomCreate, RoomUpdate, RoomResponse
 from auth import require_admin, get_current_user
 from typing import List, Optional
+import re
 
 router = APIRouter(prefix="/rooms", tags=["Rooms Management"])
+
+ROOM_NAME_PATTERN = re.compile(r"^\s*(\d+)\s*[- ]\s*(.+?)\s*$")
+ROOM_TYPE_PRIORITY = {
+    "XONA": 0,
+    "SORI": 1
+}
+
+
+def room_sort_key(room: dict):
+    name = (room.get("name") or "").strip()
+    normalized_name = name.upper()
+    match = ROOM_NAME_PATTERN.match(normalized_name)
+
+    if match:
+        room_number = int(match.group(1))
+        room_type = match.group(2).strip()
+        return (
+            room.get("filial_name") or "",
+            ROOM_TYPE_PRIORITY.get(room_type, 2),
+            room_number,
+            normalized_name
+        )
+
+    return (
+        room.get("filial_name") or "",
+        3,
+        float("inf"),
+        normalized_name
+    )
 
 
 @router.post("", response_model=RoomResponse, status_code=status.HTTP_201_CREATED)
@@ -122,10 +152,10 @@ async def get_all_rooms(
     if not include_inactive:
         query = query.where(rooms.c.is_active == True)
 
-    query = query.order_by(filials.c.name, rooms.c.name)
+    query = query.order_by(filials.c.name, rooms.c.created_at, rooms.c.id)
     all_rooms = await database.fetch_all(query)
 
-    return [
+    response_rooms = [
         {
             "id": room['id'],
             "name": room['name'],
@@ -138,6 +168,8 @@ async def get_all_rooms(
         }
         for room in all_rooms
     ]
+
+    return sorted(response_rooms, key=room_sort_key)
 
 
 @router.get("/{room_id}", response_model=RoomResponse)
