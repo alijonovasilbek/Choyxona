@@ -9,6 +9,11 @@ from auth import (
     get_current_user
 )
 from typing import List
+from pydantic import BaseModel
+
+
+class FcmTokenUpdate(BaseModel):
+    fcm_token: str
 
 router = APIRouter(prefix="/users", tags=["User Management"])
 
@@ -312,6 +317,18 @@ async def update_user(
         "roles": user_roles_list,
         "created_at": updated_user['created_at']
     }
+
+
+@router.post("/fcm-token", status_code=status.HTTP_204_NO_CONTENT)
+async def update_fcm_token(
+        data: FcmTokenUpdate,
+        current_user: dict = Depends(get_current_user)
+):
+    """Save or update FCM device token for push notifications."""
+    await database.execute(
+        update(users).where(users.c.id == current_user['id']).values(fcm_token=data.fcm_token)
+    )
+    return None
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

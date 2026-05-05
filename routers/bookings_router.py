@@ -12,6 +12,44 @@ from schemas import (
 from auth import require_admin, get_current_user
 from typing import List, Optional
 from datetime import date, datetime
+import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+async def _notify_filial_users(filial_id: int, title: str, body: str):
+    """Send FCM notification to all active users of a filial."""
+    try:
+        from services.fcm_notification_service import send_fcm_to_many
+        tokens_query = select(users.c.fcm_token).where(
+            and_(
+                users.c.is_active == True,
+                users.c.fcm_token.isnot(None),
+                users.c.filial_id == filial_id
+            )
+        )
+        rows = await database.fetch_all(tokens_query)
+        tokens = [r['fcm_token'] for r in rows if r['fcm_token']]
+
+        # Also notify superadmins/admins who may not have a filial_id
+        admin_tokens_query = select(users.c.fcm_token).select_from(
+            users.join(user_roles, users.c.id == user_roles.c.user_id)
+        ).where(
+            and_(
+                users.c.is_active == True,
+                users.c.fcm_token.isnot(None),
+                user_roles.c.role.in_([UserRole.SUPERADMIN, UserRole.ADMIN])
+            )
+        )
+        admin_rows = await database.fetch_all(admin_tokens_query)
+        admin_tokens = [r['fcm_token'] for r in admin_rows if r['fcm_token']]
+
+        all_tokens = list(set(tokens + admin_tokens))
+        if all_tokens:
+            await send_fcm_to_many(all_tokens, title, body)
+    except Exception as e:
+        logger.error(f"Notification send error: {e}")
 
 router = APIRouter(prefix="/bookings", tags=["Bookings Management"])
 
@@ -90,7 +128,7 @@ async def create_booking(
 
     created_booking = await database.fetch_one(booking_query)
 
-    return {
+    result = {
         "id": created_booking['id'],
         "room_id": created_booking['room_id'],
         "room_name": created_booking['room_name'],
@@ -104,6 +142,15 @@ async def create_booking(
         "created_at": created_booking['created_at'],
         "updated_at": created_booking['updated_at']
     }
+
+    # Send push notification to filial users
+    asyncio.create_task(_notify_filial_users(
+        filial_id=created_booking['filial_id'],
+        title="Yangi bron qo'shildi",
+        body=f"{created_booking['room_name']} — {created_booking['booking_date']}"
+    ))
+
+    return result
 
 
 @router.get("", response_model=List[BookingResponse])

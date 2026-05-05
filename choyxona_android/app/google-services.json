@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "56632503658",
+    "project_id": "choyxona-a2715",
+    "storage_bucket": "choyxona-a2715.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:56632503658:android:b894bad56e1a0cc7bc0913",
+        "android_client_info": {
+          "package_name": "uz.choyxona.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB7eUql3a_4cWcgKgaUKLIZ9-orCTNu_do"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

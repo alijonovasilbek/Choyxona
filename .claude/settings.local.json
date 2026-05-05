@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Home\\\\PycharmProjects\\\\Choyxona\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "PowerShell(head *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Home\\\\PycharmProjects\\\\Choyxona\\\\choyxona_android\" -Recurse -Directory | Where-Object {$_.Name -eq \"java\" -or $_.Name -eq \"res\"} | Select-Object FullName)",
+      "Bash(xargs grep -l \"firebase\\\\|fcm\\\\|messaging\\\\|google-services\")"
+    ]
+  }
+}

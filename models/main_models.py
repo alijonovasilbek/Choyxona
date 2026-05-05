@@ -43,6 +43,7 @@ users = Table(
     Column('username', String(100), unique=True, nullable=False),
     Column('password_hash', String(255), nullable=False),
     Column('filial_id', Integer, ForeignKey('filials.id', ondelete='SET NULL'), nullable=True),  # Oshpaz uchun
+    Column('fcm_token', String(512), nullable=True),
     Column('is_active', Boolean, default=True),
     Column('created_at', DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column('updated_at', DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),

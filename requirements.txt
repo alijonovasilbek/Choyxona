@@ -31,3 +31,6 @@ APScheduler
 # Utilities
 pydantic
 pydantic[email]
+
+# FCM Push Notifications
+firebase-admin
