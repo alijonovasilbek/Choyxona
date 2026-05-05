@@ -39,7 +39,10 @@ async def _notify_filial_users(filial_id: int, title: str, body: str):
             and_(
                 users.c.is_active == True,
                 users.c.fcm_token.isnot(None),
-                user_roles.c.role.in_([UserRole.SUPERADMIN, UserRole.ADMIN])
+                or_(
+                    user_roles.c.role == UserRole.SUPERADMIN,
+                    user_roles.c.role == UserRole.ADMIN
+                )
             )
         )
         admin_rows = await database.fetch_all(admin_tokens_query)
