@@ -1,9 +1,14 @@
 package uz.choyxona.app.ui.screen
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -21,11 +26,7 @@ import androidx.compose.ui.unit.sp
 import uz.choyxona.app.ui.components.GlassButton
 import uz.choyxona.app.ui.components.GlassTextField
 import uz.choyxona.app.ui.components.LiquidGlassCard
-import uz.choyxona.app.ui.theme.BackgroundLight
-import uz.choyxona.app.ui.theme.PrimaryGreen
-import uz.choyxona.app.ui.theme.PrimaryGreenDark
-import uz.choyxona.app.ui.theme.TextPrimary
-import uz.choyxona.app.ui.theme.TextSecondary
+import uz.choyxona.app.ui.theme.LocalAppColors
 import uz.choyxona.app.ui.viewmodel.AuthViewModel
 
 @Composable
@@ -33,9 +34,13 @@ fun LoginScreen(
     viewModel: AuthViewModel,
     onLoginSuccess: () -> Unit
 ) {
+    val colors = LocalAppColors.current
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val uiState by viewModel.uiState.collectAsState()
+
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
 
     LaunchedEffect(uiState.isLoggedIn, uiState.needsFilialSelection) {
         if (uiState.isLoggedIn || uiState.needsFilialSelection) {
@@ -46,40 +51,33 @@ fun LoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        BackgroundLight,
-                        Color.White
-                    )
-                )
-            )
+            .background(colors.background)
     ) {
-        // Decorative circles
+        // Soft decorative glow
         Box(
             modifier = Modifier
-                .offset(x = (-100).dp, y = (-150).dp)
-                .size(300.dp)
+                .offset(x = (-90).dp, y = (-120).dp)
+                .size(280.dp)
                 .clip(CircleShape)
                 .background(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            PrimaryGreen.copy(alpha = 0.2f),
+                            colors.primary.copy(alpha = 0.16f),
                             Color.Transparent
                         )
                     )
                 )
         )
-
         Box(
             modifier = Modifier
-                .offset(x = (200).dp, y = (400).dp)
-                .size(250.dp)
+                .align(Alignment.BottomEnd)
+                .offset(x = 80.dp, y = 100.dp)
+                .size(260.dp)
                 .clip(CircleShape)
                 .background(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            PrimaryGreenDark.copy(alpha = 0.15f),
+                            colors.info.copy(alpha = 0.10f),
                             Color.Transparent
                         )
                     )
@@ -95,74 +93,99 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = "Choyxona",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
-            )
-
-            Text(
-                text = "Bron Tizimi",
-                fontSize = 16.sp,
-                color = TextSecondary
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            LiquidGlassCard {
-                GlassTextField(
-                    value = username,
-                    onValueChange = {
-                        username = it
-                        viewModel.clearError()
-                    },
-                    label = "Foydalanuvchi nomi",
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardType = KeyboardType.Email,
-                    imeAction = ImeAction.Next
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                GlassTextField(
-                    value = password,
-                    onValueChange = {
-                        password = it
-                        viewModel.clearError()
-                    },
-                    label = "Parol",
-                    modifier = Modifier.fillMaxWidth(),
-                    isPassword = true,
-                    imeAction = ImeAction.Done,
-                    onImeAction = {
-                        if (username.isNotBlank() && password.isNotBlank()) {
-                            viewModel.login(username, password)
-                        }
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(500)) + slideInVertically(tween(500)) { -it / 3 }
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(colors.primary, colors.primaryDark)
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "🍵", fontSize = 34.sp)
                     }
-                )
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                GlassButton(
-                    text = "Kirish",
-                    onClick = {
-                        viewModel.login(username, password)
-                    },
-                    enabled = username.isNotBlank() && password.isNotBlank(),
-                    isLoading = uiState.isLoading
-                )
-
-                if (uiState.error != null) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
                     Text(
-                        text = uiState.error!!,
-                        color = Color.Red,
-                        fontSize = 14.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
+                        text = "Choyxona",
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.textPrimary
                     )
+                    Text(
+                        text = "Bron tizimiga xush kelibsiz",
+                        fontSize = 15.sp,
+                        color = colors.textSecondary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(36.dp))
+
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(600, delayMillis = 150)) +
+                        slideInVertically(tween(600, delayMillis = 150)) { it / 4 }
+            ) {
+                LiquidGlassCard {
+                    GlassTextField(
+                        value = username,
+                        onValueChange = {
+                            username = it
+                            viewModel.clearError()
+                        },
+                        label = "Foydalanuvchi nomi",
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Next
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    GlassTextField(
+                        value = password,
+                        onValueChange = {
+                            password = it
+                            viewModel.clearError()
+                        },
+                        label = "Parol",
+                        modifier = Modifier.fillMaxWidth(),
+                        isPassword = true,
+                        imeAction = ImeAction.Done,
+                        onImeAction = {
+                            if (username.isNotBlank() && password.isNotBlank()) {
+                                viewModel.login(username, password)
+                            }
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    GlassButton(
+                        text = "Kirish",
+                        onClick = { viewModel.login(username, password) },
+                        enabled = username.isNotBlank() && password.isNotBlank(),
+                        isLoading = uiState.isLoading
+                    )
+
+                    if (uiState.error != null) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = uiState.error!!,
+                            color = colors.error,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
         }

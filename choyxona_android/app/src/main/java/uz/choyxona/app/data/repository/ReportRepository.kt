@@ -1,6 +1,7 @@
 package uz.choyxona.app.data.repository
 
 import uz.choyxona.app.data.api.ApiClient
+import uz.choyxona.app.data.api.ApiErrorMapper
 import uz.choyxona.app.data.model.*
 
 class ReportRepository {
@@ -18,10 +19,10 @@ class ReportRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: response.message()))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -36,10 +37,10 @@ class ReportRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: response.message()))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -50,10 +51,10 @@ class ReportRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: response.message()))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 }

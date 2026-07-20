@@ -3,7 +3,7 @@ from sqlalchemy import select, insert, update, delete
 from database import database
 from models.main_models import rooms, filials, UserRole
 from schemas import RoomCreate, RoomUpdate, RoomResponse
-from auth import require_admin, get_current_user
+from auth import require_admin_or_oshpaz, get_current_user
 from typing import List, Optional
 import re
 
@@ -42,7 +42,7 @@ def room_sort_key(room: dict):
 @router.post("", response_model=RoomResponse, status_code=status.HTTP_201_CREATED)
 async def create_room(
         room_data: RoomCreate,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Create new room/place.
@@ -226,7 +226,7 @@ async def get_room(
 async def update_room(
         room_id: int,
         room_data: RoomUpdate,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Update room.
@@ -297,7 +297,7 @@ async def update_room(
 @router.delete("/{room_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_room(
         room_id: int,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Delete room.

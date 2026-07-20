@@ -1,33 +1,68 @@
 package uz.choyxona.app.ui.theme
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 
-// Light Green Theme Colors
-val PrimaryGreen = Color(0xFF4ADE80)
-val PrimaryGreenDark = Color(0xFF22C55E)
-val PrimaryGreenLight = Color(0xFF86EFAC)
+/**
+ * Legacy color names, now theme-aware: they resolve against the active
+ * [AppColors] palette, so every screen that imports them follows
+ * light/dark mode automatically.
+ */
 
-val SecondaryGreen = Color(0xFFA7F3D0)
-val BackgroundLight = Color(0xFFF0FDF4)
-val BackgroundWhite = Color(0xFFFAFAFA)
+val PrimaryGreen: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.primary
 
-val TextPrimary = Color(0xFF1A1A1A)
-val TextSecondary = Color(0xFF6B7280)
-val TextTertiary = Color(0xFF9CA3AF)
+val PrimaryGreenDark: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.primaryDark
 
-val GlassWhite = Color(0xFFFFFFFF).copy(alpha = 0.7f)
-val GlassSurface = Color(0xFFE8F5E9).copy(alpha = 0.6f)
+val PrimaryGreenLight: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.primaryLight
 
-// Status Colors
-val StatusPending = Color(0xFFF59E0B)
-val StatusSuccessful = Color(0xFF10B981)
-val StatusCancelled = Color(0xFFEF4444)
+val SecondaryGreen: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.primaryContainer
 
-// Additional Colors
-val DividerColor = Color(0xFFE5E7EB)
-val ErrorRed = Color(0xFFDC2626)
-val WarningOrange = Color(0xFFF97316)
+val BackgroundLight: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.background
 
-// Card Border Colors
-val CardBorderGreen = Color(0xFF4ADE90).copy(alpha = 0.4f)
-val CardBorderLight = Color(0xFFE5E7EB)
+val BackgroundWhite: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.surface
+
+val TextPrimary: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.textPrimary
+
+val TextSecondary: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.textSecondary
+
+val TextTertiary: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.textTertiary
+
+val GlassWhite: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.surface
+
+val GlassSurface: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.surfaceAlt
+
+val StatusPending: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.statusPending
+
+val StatusSuccessful: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.statusSuccessful
+
+val StatusCancelled: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.statusCancelled
+
+val DividerColor: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.divider
+
+val ErrorRed: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.error
+
+val WarningOrange: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.warning
+
+val CardBorderGreen: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.primary.copy(alpha = 0.35f)
+
+val CardBorderLight: Color
+    @Composable @ReadOnlyComposable get() = LocalAppColors.current.border

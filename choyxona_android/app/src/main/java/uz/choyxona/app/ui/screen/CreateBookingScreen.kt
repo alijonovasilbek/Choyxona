@@ -95,14 +95,7 @@ fun CreateBookingScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            BackgroundLight,
-                            Color.White
-                        )
-                    )
-                )
+                .background(BackgroundLight)
         ) {
             Column(
                 modifier = Modifier

@@ -100,14 +100,7 @@ fun WeeklyBookingsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        BackgroundLight,
-                        Color.White
-                    )
-                )
-            )
+            .background(BackgroundLight)
     ) {
         Column(
             modifier = Modifier
@@ -322,44 +315,19 @@ fun DayCard(
             Spacer(modifier = Modifier.height(4.dp))
 
             if (bookingsCount > 0) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(PrimaryGreen.copy(alpha = 0.15f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)  // Kichikroq qilindi (eski 40dp edi)
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(PrimaryGreen.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = bookingsCount.toString(),
-                            fontSize = 16.sp,  // Kichikroq qilindi (eski 18sp edi)
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryGreenDark
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (pendingCount > 0) {
-                            StatusIndicator(
-                                count = pendingCount,
-                                color = StatusPending
-                            )
-                        }
-                        if (successfulCount > 0) {
-                            Spacer(modifier = Modifier.width(4.dp))
-                            StatusIndicator(
-                                count = successfulCount,
-                                color = StatusSuccessful
-                            )
-                        }
-                    }
+                    Text(
+                        text = "$bookingsCount ta ${if (bookingsCount > 1) "bronlar" else "bron"}",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = PrimaryGreenDark
+                    )
                 }
             } else {
                 Text(
@@ -563,7 +531,7 @@ private fun DayRoomBookingsCard(
                 text = roomName.uppercase(),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF111111)
+                color = TextPrimary
             )
 
             Row(verticalAlignment = Alignment.CenterVertically) {

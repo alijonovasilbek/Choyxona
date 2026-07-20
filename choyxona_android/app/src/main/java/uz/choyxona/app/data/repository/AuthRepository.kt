@@ -1,5 +1,7 @@
 package uz.choyxona.app.data.repository
 
+import uz.choyxona.app.data.api.ApiErrorMapper
+
 import uz.choyxona.app.data.api.ApiClient
 import uz.choyxona.app.data.model.TokenResponse
 import uz.choyxona.app.data.model.FilialInfo
@@ -19,11 +21,11 @@ class AuthRepository {
                 Result.success(response.body()!!)
             } else {
                 Result.failure(
-                    Exception(response.errorBody()?.string() ?: "Login failed")
+                    Exception(ApiErrorMapper.fromResponse(response))
                 )
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -35,11 +37,11 @@ class AuthRepository {
                 Result.success(response.body()!!)
             } else {
                 Result.failure(
-                    Exception(response.errorBody()?.string() ?: "Failed to switch filial")
+                    Exception(ApiErrorMapper.fromResponse(response))
                 )
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -51,11 +53,11 @@ class AuthRepository {
                 Result.success(response.body()!!.filials)
             } else {
                 Result.failure(
-                    Exception(response.errorBody()?.string() ?: "Failed to fetch filials")
+                    Exception(ApiErrorMapper.fromResponse(response))
                 )
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -72,10 +74,10 @@ class AuthRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.message()))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -86,10 +88,10 @@ class AuthRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.message()))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 }

@@ -3,7 +3,7 @@ from sqlalchemy import select, func, and_, or_
 from database import database
 from models.main_models import bookings, rooms, filials, BookingStatus, UserRole
 from schemas import BookingStatsResponse, MonthlyReportResponse
-from auth import require_admin, get_current_user
+from auth import require_admin_or_oshpaz, get_current_user
 from typing import Optional
 from datetime import date, datetime
 from calendar import monthrange
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/reports", tags=["Reports & Analytics"])
 async def get_booking_stats(
         date_from: Optional[date] = Query(None, description="Start date for filter"),
         date_to: Optional[date] = Query(None, description="End date for filter"),
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Get booking statistics for the active filial.
@@ -84,7 +84,7 @@ async def get_booking_stats(
 async def monthly_report(
         year: int,
         month: int,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Get monthly report with breakdown by room for the active filial.
@@ -200,7 +200,7 @@ async def monthly_report(
 @router.get("/daily/{date_value}")
 async def get_daily_report(
         date_value: date,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Get daily report with all bookings and statistics for the active filial.

@@ -4,7 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import delete, insert, select, update
 
-from auth import get_current_user, require_admin
+from auth import get_current_user, require_admin_or_oshpaz
 from database import database
 from models.main_models import UserRole, filials, saboys, users
 from schemas import SaboyCreate, SaboyResponse, SaboyUpdate
@@ -51,7 +51,7 @@ def validate_active_filial_access(current_user: dict, filial_id: int):
 @router.post("", response_model=SaboyResponse, status_code=status.HTTP_201_CREATED)
 async def create_saboy(
     saboy_data: SaboyCreate,
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     filial_query = select(filials).where(filials.c.id == saboy_data.filial_id)
     filial = await database.fetch_one(filial_query)
@@ -149,7 +149,7 @@ async def get_saboy(
 async def update_saboy(
     saboy_id: int,
     saboy_data: SaboyUpdate,
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     query = build_saboy_query().where(saboys.c.id == saboy_id)
     saboy = await database.fetch_one(query)
@@ -195,7 +195,7 @@ async def update_saboy(
 @router.delete("/{saboy_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_saboy(
     saboy_id: int,
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     query = select(saboys).where(saboys.c.id == saboy_id)
     saboy = await database.fetch_one(query)

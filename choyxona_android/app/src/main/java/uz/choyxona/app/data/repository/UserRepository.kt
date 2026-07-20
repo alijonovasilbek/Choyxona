@@ -1,6 +1,7 @@
 package uz.choyxona.app.data.repository
 
 import uz.choyxona.app.data.api.RetrofitClient
+import uz.choyxona.app.data.api.ApiErrorMapper
 import uz.choyxona.app.data.model.*
 
 class UserRepository {
@@ -17,10 +18,10 @@ class UserRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to fetch users: ${response.message()}"))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -31,10 +32,10 @@ class UserRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to fetch user: ${response.message()}"))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -61,10 +62,10 @@ class UserRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to create user: ${response.message()}"))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -90,10 +91,10 @@ class UserRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to update user: ${response.message()}"))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -104,10 +105,10 @@ class UserRepository {
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                Result.failure(Exception("Failed to delete user: ${response.message()}"))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 }

@@ -14,6 +14,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import uz.choyxona.app.data.local.SettingsManager
 import uz.choyxona.app.data.local.TokenManager
 import uz.choyxona.app.data.model.FilialInfo
 import uz.choyxona.app.data.repository.AuthRepository
@@ -23,6 +29,7 @@ import uz.choyxona.app.data.repository.RoomRepository
 import uz.choyxona.app.data.repository.UserRepository
 import uz.choyxona.app.ui.screen.*
 import uz.choyxona.app.ui.theme.ChoyxonaTheme
+import uz.choyxona.app.ui.theme.ThemeMode
 import uz.choyxona.app.ui.viewmodel.AuthViewModel
 import uz.choyxona.app.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
@@ -30,19 +37,24 @@ import kotlinx.coroutines.flow.first
 
 class MainActivity : ComponentActivity() {
     private lateinit var tokenManager: TokenManager
+    private lateinit var settingsManager: SettingsManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         tokenManager = TokenManager(applicationContext)
+        settingsManager = SettingsManager(applicationContext)
 
         setContent {
-            ChoyxonaTheme {
+            val themeMode by settingsManager.themeMode
+                .collectAsState(initial = ThemeMode.SYSTEM)
+
+            ChoyxonaTheme(themeMode = themeMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    ChoyxonaApp(tokenManager)
+                    ChoyxonaApp(tokenManager, settingsManager, themeMode)
                 }
             }
         }
@@ -51,7 +63,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun ChoyxonaApp(
-    tokenManager: TokenManager
+    tokenManager: TokenManager,
+    settingsManager: SettingsManager,
+    themeMode: ThemeMode
 ) {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
@@ -81,7 +95,19 @@ fun ChoyxonaApp(
         navController = navController,
         startDestination = if (uiState.isLoggedIn) {
             if (uiState.needsFilialSelection) "filial_selection" else "dashboard"
-        } else "login"
+        } else "login",
+        enterTransition = {
+            fadeIn(tween(280)) + slideInHorizontally(tween(280)) { it / 6 }
+        },
+        exitTransition = {
+            fadeOut(tween(220))
+        },
+        popEnterTransition = {
+            fadeIn(tween(280)) + slideInHorizontally(tween(280)) { -it / 6 }
+        },
+        popExitTransition = {
+            fadeOut(tween(220)) + slideOutHorizontally(tween(280)) { it / 6 }
+        }
     ) {
         // ==================== LOGIN ====================
         composable("login") {
@@ -146,6 +172,39 @@ fun ChoyxonaApp(
                 },
                 onNavigateToUsers = {
                     navController.navigate("users")
+                },
+                onSwitchFilial = {
+                    authViewModel.startFilialSelection()
+                    navController.navigate("filial_selection")
+                },
+                canSwitchFilial = uiState.currentUser?.roles?.any {
+                    it.equals("admin", ignoreCase = true) || it.equals("superadmin", ignoreCase = true)
+                } == true,
+                onLogout = {
+                    authViewModel.logout()
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onNavigateToSettings = {
+                    navController.navigate("settings")
+                },
+                onStatsRange = { from, to ->
+                    mainViewModel.loadStatsRange(from, to)
+                }
+            )
+        }
+
+        // ==================== SETTINGS ====================
+        composable("settings") {
+            SettingsScreen(
+                currentUser = uiState.currentUser,
+                themeMode = themeMode,
+                onThemeModeChange = { mode ->
+                    scope.launch { settingsManager.setThemeMode(mode) }
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
                 },
                 onSwitchFilial = {
                     authViewModel.startFilialSelection()
@@ -346,13 +405,20 @@ fun ChoyxonaApp(
 
         // ==================== CREATE ROOM ====================
         composable("create_room") {
+            var isCreating by remember { mutableStateOf(false) }
+            var createError by remember { mutableStateOf<String?>(null) }
+
             CreateRoomScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                filialId = uiState.userInfo?.activeFilialId,
+                filialId = uiState.userInfo?.activeFilialId ?: uiState.currentUser?.filialId,
+                isLoading = isCreating,
+                error = createError,
                 onCreateRoom = { name, description, filialId ->
                     scope.launch {
+                        isCreating = true
+                        createError = null
                         val repository = RoomRepository()
                         val token = tokenManager.accessToken.first()
                         if (token != null) {
@@ -362,10 +428,17 @@ fun ChoyxonaApp(
                                 description = description,
                                 filialId = filialId
                             )
+                            isCreating = false
                             if (result.isSuccess) {
                                 mainViewModel.loadRooms()
                                 navController.popBackStack()
+                            } else {
+                                createError = result.exceptionOrNull()?.message
+                                    ?: "Xona yaratishda xatolik yuz berdi"
                             }
+                        } else {
+                            isCreating = false
+                            createError = "Sessiya tugagan, qaytadan kiring"
                         }
                     }
                 }
@@ -381,13 +454,20 @@ fun ChoyxonaApp(
             val room = mainUiState.rooms.find { it.id == roomId }
 
             if (room != null) {
+                var isUpdating by remember { mutableStateOf(false) }
+                var updateError by remember { mutableStateOf<String?>(null) }
+
                 EditRoomScreen(
                     room = room,
                     onNavigateBack = {
                         navController.popBackStack()
                     },
+                    isLoading = isUpdating,
+                    error = updateError,
                     onUpdateRoom = { id, name, description, isActive ->
                         scope.launch {
+                            isUpdating = true
+                            updateError = null
                             val repository = RoomRepository()
                             val token = tokenManager.accessToken.first()
                             if (token != null) {
@@ -398,10 +478,17 @@ fun ChoyxonaApp(
                                     description = description,
                                     isActive = isActive
                                 )
+                                isUpdating = false
                                 if (result.isSuccess) {
                                     mainViewModel.loadRooms()
                                     navController.popBackStack()
+                                } else {
+                                    updateError = result.exceptionOrNull()?.message
+                                        ?: "Xonani yangilashda xatolik yuz berdi"
                                 }
+                            } else {
+                                isUpdating = false
+                                updateError = "Sessiya tugagan, qaytadan kiring"
                             }
                         }
                     }

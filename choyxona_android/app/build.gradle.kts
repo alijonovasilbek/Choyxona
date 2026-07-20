@@ -14,8 +14,8 @@ android {
         applicationId = "uz.choyxona.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -29,7 +29,7 @@ android {
             buildConfigField(
                 "String",
                 "BASE_URL",
-                "\"https://unsyllogistic-ashli-hyponitrous.ngrok-free.dev\"" // Oxirida / yo'q!
+                "\"https://choyxona.api.cognilabs.org:8443\"" // Server API, oxirida / yo'q!
             )
 
             isMinifyEnabled = false
@@ -40,7 +40,7 @@ android {
             buildConfigField(
                 "String",
                 "BASE_URL",
-                "\"https://unsyllogistic-ashli-hyponitrous.ngrok-free.dev\""   // Yoki production URL
+                "\"https://choyxona.api.cognilabs.org:8443\""   // Server API
             )
 
             isMinifyEnabled = true

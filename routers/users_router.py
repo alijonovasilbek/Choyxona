@@ -5,7 +5,7 @@ from models.main_models import users, user_roles, filials, UserRole
 from schemas import UserCreate, UserUpdate, UserResponse
 from auth import (
     get_password_hash,
-    require_admin,
+    require_admin_or_oshpaz,
     get_current_user
 )
 from typing import List
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/users", tags=["User Management"])
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
         user_data: UserCreate,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Create new user (Admin or Oshpaz).
@@ -121,7 +121,7 @@ async def create_user(
 
 @router.get("", response_model=List[UserResponse])
 async def get_all_users(
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Get all users.
@@ -164,7 +164,7 @@ async def get_all_users(
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
         user_id: int,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Get user by ID.
@@ -209,7 +209,7 @@ async def get_user(
 async def update_user(
         user_id: int,
         user_data: UserUpdate,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Update user.
@@ -334,7 +334,7 @@ async def update_fcm_token(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
         user_id: int,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Delete user.

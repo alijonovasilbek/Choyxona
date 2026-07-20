@@ -35,14 +35,7 @@ fun ReportsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        BackgroundLight,
-                        Color.White
-                    )
-                )
-            )
+            .background(BackgroundLight)
     ) {
         Column(
             modifier = Modifier

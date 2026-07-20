@@ -2,6 +2,7 @@ package uz.choyxona.app.data.repository
 
 import com.google.gson.Gson
 import uz.choyxona.app.data.api.RetrofitClient
+import uz.choyxona.app.data.api.ApiErrorMapper
 import uz.choyxona.app.data.model.*
 
 class BookingRepository {
@@ -25,10 +26,10 @@ class BookingRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to fetch bookings: ${response.message()}"))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -39,10 +40,10 @@ class BookingRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to fetch booking: ${response.message()}"))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -70,7 +71,7 @@ class BookingRepository {
                 )
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -98,7 +99,7 @@ class BookingRepository {
                 )
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -126,7 +127,7 @@ class BookingRepository {
                 )
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -143,7 +144,7 @@ class BookingRepository {
                 )
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 

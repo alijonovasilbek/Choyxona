@@ -3,7 +3,7 @@ from sqlalchemy import select, insert, update, delete
 from database import database
 from models.main_models import filials
 from schemas import FilialCreate, FilialUpdate, FilialResponse
-from auth import require_admin, get_current_user
+from auth import require_admin_or_oshpaz, get_current_user
 from typing import List
 
 router = APIRouter(prefix="/filials", tags=["Filials Management"])
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/filials", tags=["Filials Management"])
 @router.post("", response_model=FilialResponse, status_code=status.HTTP_201_CREATED)
 async def create_filial(
         filial_data: FilialCreate,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Create new filial.
@@ -111,7 +111,7 @@ async def get_filial(
 async def update_filial(
         filial_id: int,
         filial_data: FilialUpdate,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Update filial.
@@ -169,7 +169,7 @@ async def update_filial(
 @router.delete("/{filial_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_filial(
         filial_id: int,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Delete filial.

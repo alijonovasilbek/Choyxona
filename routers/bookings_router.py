@@ -9,7 +9,7 @@ from schemas import (
     BookingResponse,
     BookingStatusEnum
 )
-from auth import require_admin, get_current_user
+from auth import require_admin_or_oshpaz, get_current_user
 from typing import List, Optional
 from datetime import date, datetime
 import asyncio
@@ -60,7 +60,7 @@ router = APIRouter(prefix="/bookings", tags=["Bookings Management"])
 @router.post("", response_model=BookingResponse, status_code=status.HTTP_201_CREATED)
 async def create_booking(
         booking_data: BookingCreate,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Create new booking.
@@ -91,19 +91,7 @@ async def create_booking(
             detail="Cannot create booking for past dates"
         )
 
-    # Check if room is already booked for this date
-    existing_booking_query = select(bookings).where(
-        and_(
-            bookings.c.room_id == booking_data.room_id,
-            bookings.c.booking_date == booking_data.booking_date
-        )
-    )
-    existing_booking = await database.fetch_one(existing_booking_query)
-    if existing_booking:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Room is already booked for this date"
-        )
+    # Multiple bookings per room per day are allowed
 
     # Insert booking
     insert_query = insert(bookings).values(
@@ -388,7 +376,7 @@ async def get_booking(
 async def update_booking(
         booking_id: int,
         booking_data: BookingUpdate,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Update booking details.
@@ -451,43 +439,9 @@ async def update_booking(
                 detail="Room is not active"
             )
 
-        # Check for duplicate booking
-        booking_date_to_check = booking_data.booking_date if booking_data.booking_date else booking['booking_date']
-        if booking_data.room_id != booking['room_id'] or \
-                (booking_data.booking_date and booking_data.booking_date != booking['booking_date']):
-            existing_booking_query = select(bookings).where(
-                and_(
-                    bookings.c.room_id == booking_data.room_id,
-                    bookings.c.booking_date == booking_date_to_check,
-                    bookings.c.id != booking_id
-                )
-            )
-            existing_booking = await database.fetch_one(existing_booking_query)
-            if existing_booking:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Room is already booked for this date"
-                )
-
         update_data['room_id'] = booking_data.room_id
 
     if booking_data.booking_date is not None:
-        # Check for duplicate booking
-        room_id_to_check = booking_data.room_id if booking_data.room_id else booking['room_id']
-        if booking_data.booking_date != booking['booking_date']:
-            existing_booking_query = select(bookings).where(
-                and_(
-                    bookings.c.room_id == room_id_to_check,
-                    bookings.c.booking_date == booking_data.booking_date,
-                    bookings.c.id != booking_id
-                )
-            )
-            existing_booking = await database.fetch_one(existing_booking_query)
-            if existing_booking:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Room is already booked for this date"
-                )
         update_data['booking_date'] = booking_data.booking_date
 
     if booking_data.description is not None:
@@ -534,7 +488,7 @@ async def update_booking(
 async def update_booking_status(
         booking_id: int,
         status_data: BookingStatusUpdate,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Update booking status.
@@ -611,7 +565,7 @@ async def update_booking_status(
 @router.delete("/{booking_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_booking(
         booking_id: int,
-        current_user: dict = Depends(require_admin)
+        current_user: dict = Depends(require_admin_or_oshpaz)
 ):
     """
     Delete booking.

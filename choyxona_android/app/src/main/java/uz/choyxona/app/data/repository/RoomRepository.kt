@@ -1,10 +1,25 @@
 package uz.choyxona.app.data.repository
 
 import uz.choyxona.app.data.api.RetrofitClient
+import uz.choyxona.app.data.api.ApiErrorMapper
 import uz.choyxona.app.data.model.*
 
 class RoomRepository {
     private val api = RetrofitClient.rooms
+
+    private fun errorMessage(response: retrofit2.Response<*>, fallback: String): String {
+        return try {
+            val body = response.errorBody()?.string()
+            if (!body.isNullOrBlank()) {
+                val detail = org.json.JSONObject(body).optString("detail")
+                if (detail.isNotBlank()) detail else "$fallback (HTTP ${response.code()})"
+            } else {
+                "$fallback (HTTP ${response.code()})"
+            }
+        } catch (e: Exception) {
+            "$fallback (HTTP ${response.code()})"
+        }
+    }
 
     // Xonalarni olish
     suspend fun getRooms(token: String): Result<List<RoomResponse>> {
@@ -21,10 +36,10 @@ class RoomRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to fetch rooms: ${response.message()}"))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -35,10 +50,10 @@ class RoomRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to fetch room: ${response.message()}"))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -59,10 +74,10 @@ class RoomRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to create room: ${response.message()}"))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -84,10 +99,10 @@ class RoomRepository {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to update room: ${response.message()}"))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 
@@ -98,10 +113,10 @@ class RoomRepository {
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                Result.failure(Exception("Failed to delete room: ${response.message()}"))
+                Result.failure(Exception(ApiErrorMapper.fromResponse(response)))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception(ApiErrorMapper.fromThrowable(e)))
         }
     }
 }

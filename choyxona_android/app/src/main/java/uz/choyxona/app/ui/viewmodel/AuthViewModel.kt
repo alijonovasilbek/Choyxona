@@ -47,12 +47,25 @@ class AuthViewModel(
                     if (result.isSuccess) {
                         val user = result.getOrNull()
                         if (user != null) {
+                            // Restore userInfo from /auth/me so activeFilialId
+                            // survives app restarts (buttons depend on it)
+                            val restoredInfo = UserInfo(
+                                id = user.id,
+                                fullName = user.fullName,
+                                username = user.username,
+                                roles = user.roles,
+                                userFilialId = user.filialId,
+                                activeFilialId = user.filialId,
+                                availableFilials = emptyList(),
+                                isOshpaz = user.roles.contains("oshpaz")
+                            )
                             val needsSelection = isAdminOrSuperAdmin(user.roles)
                             if (needsSelection) {
                                 val filialsResult = authRepository.getAvailableFilials()
                                 _uiState.value = AuthUiState(
                                     isLoggedIn = false,
                                     currentUser = user,
+                                    userInfo = restoredInfo,
                                     isLoading = false,
                                     needsFilialSelection = true,
                                     availableFilials = filialsResult.getOrNull() ?: emptyList()
@@ -61,6 +74,7 @@ class AuthViewModel(
                                 _uiState.value = AuthUiState(
                                     isLoggedIn = true,
                                     currentUser = user,
+                                    userInfo = restoredInfo,
                                     isLoading = false
                                 )
                             }
@@ -157,7 +171,7 @@ class AuthViewModel(
             } else {
                 _uiState.value = AuthUiState(
                     isLoading = false,
-                    error = result.exceptionOrNull()?.message ?: "Login failed"
+                    error = result.exceptionOrNull()?.message ?: "Kirishda xatolik yuz berdi"
                 )
             }
         }

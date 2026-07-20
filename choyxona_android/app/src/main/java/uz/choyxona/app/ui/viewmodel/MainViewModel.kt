@@ -148,13 +148,18 @@ class MainViewModel(
     }
 
     fun loadStats() {
+        val today = LocalDate.now()
+        val formatter = DateTimeFormatter.ISO_LOCAL_DATE
+        loadStatsRange(
+            dateFrom = today.minusDays(6).format(formatter),
+            dateTo = today.format(formatter)
+        )
+    }
+
+    fun loadStatsRange(dateFrom: String, dateTo: String) {
         viewModelScope.launch {
             val token = tokenManager.accessToken.first()
             if (!token.isNullOrEmpty()) {
-                val today = LocalDate.now()
-                val formatter = DateTimeFormatter.ISO_LOCAL_DATE
-                val dateFrom = today.withDayOfMonth(1).format(formatter)
-                val dateTo = today.format(formatter)
 
                 // Load dashboard stats
                 val result = reportRepository.getStats(

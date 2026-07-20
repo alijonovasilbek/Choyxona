@@ -55,3 +55,9 @@ Thumbs.db
 # Project specific
 .env.local
 .env.production
+
+# Android build junk
+choyxona_android/.gradle/
+choyxona_android/local.properties
+choyxona_android/app/build/
+choyxona_android/build/

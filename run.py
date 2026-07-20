@@ -17,6 +17,9 @@ from routers.filials_router import router as filials_router
 # Import scheduler
 from services.scheduler import scheduler
 
+# Import seed helpers
+from seed import create_tables, seed_admin, seed_oshpaz
+
 # --------------------------------------------------
 # FASTAPI APP CONFIG
 # --------------------------------------------------
@@ -34,8 +37,13 @@ app = FastAPI(
 @app.on_event("startup")
 async def startup():
     """Connect to database and start scheduler on startup"""
+    create_tables()
+
     await database.connect()
     print("✅ Database connected")
+
+    await seed_admin()
+    await seed_oshpaz()
 
     # Start notification scheduler
     scheduler.start()
