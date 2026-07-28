@@ -146,15 +146,14 @@ async def _perform_login(username: str, password: str):
             )
         active_filial_id = user['filial_id']
 
-        # Get filial name
-        filial_query = select(filials).where(filials.c.id == active_filial_id)
-        active_filial = await database.fetch_one(filial_query)
-
-        # Get available filials (only their filial)
-        available_filials = [{
-            "id": active_filial['id'],
-            "name": active_filial['name']
-        }] if active_filial else []
+        # Oshpaz starts in their assigned filial but may switch to any active one,
+        # so the full list is returned for the header switcher.
+        filials_query = select(filials).where(filials.c.is_active == True).order_by(filials.c.name)
+        all_filials = await database.fetch_all(filials_query)
+        available_filials = [
+            {"id": f['id'], "name": f['name']}
+            for f in all_filials
+        ]
 
     else:
         # Admin/Superadmin: can access all filials
@@ -255,16 +254,9 @@ async def switch_filial(
         current_user: dict = Depends(get_current_user)
 ):
     """
-    Switch active filial for Admin/Superadmin.
-    Oshpaz cannot switch filials.
+    Switch active filial. Available to every role — an oshpaz keeps their
+    assigned filial as the default but may work in any active filial.
     """
-    # Check if user is Admin or Superadmin
-    if UserRole.ADMIN not in current_user['roles'] and UserRole.SUPERADMIN not in current_user['roles']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only Admin and Superadmin can switch filials"
-        )
-
     # Verify filial exists and is active
     filial_query = select(filials).where(filials.c.id == filial_id)
     filial = await database.fetch_one(filial_query)
@@ -309,6 +301,10 @@ async def switch_filial(
             "active_filial_id": filial_id,
             "active_filial_name": filial['name'],
             "available_filials": available_filials,
-            "is_oshpaz": False
+            "is_oshpaz": (
+                UserRole.OSHPAZ in current_user['roles'] and
+                UserRole.ADMIN not in current_user['roles'] and
+                UserRole.SUPERADMIN not in current_user['roles']
+            )
         }
     }

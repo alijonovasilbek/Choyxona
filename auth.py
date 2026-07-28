@@ -104,10 +104,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     roles_result = await database.fetch_all(roles_query)
     roles = [role['role'] for role in roles_result]
 
-    # Oshpaz uchun filial_id user ma'lumotlaridan olinadi
-    # Admin/Superadmin uchun tokendan olinadi (login paytida tanlangan)
+    # Active filial har doim tokendan olinadi (login yoki /auth/switch-filial).
+    # Oshpaz uchun users.filial_id endi faqat asosiy (default) filial — token
+    # uni qayta yozishi mumkin, aks holda filialni almashtirish ishlamaydi.
     if UserRole.OSHPAZ in roles and UserRole.ADMIN not in roles and UserRole.SUPERADMIN not in roles:
-        active_filial_id = user['filial_id']
+        active_filial_id = selected_filial_id or user['filial_id']
     else:
         active_filial_id = selected_filial_id
 

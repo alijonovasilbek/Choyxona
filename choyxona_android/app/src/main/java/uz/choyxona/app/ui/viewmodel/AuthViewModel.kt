@@ -251,7 +251,7 @@ class AuthViewModel(
     fun ensureAvailableFilialsLoaded() {
         val state = _uiState.value
         if (state.availableFilials.isNotEmpty()) return
-        if (!isAdminOrSuperAdmin(state.currentUser?.roles.orEmpty())) return
+        if (state.currentUser == null) return
 
         viewModelScope.launch {
             val filials = authRepository.getAvailableFilials().getOrNull()

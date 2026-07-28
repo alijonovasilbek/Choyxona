@@ -85,9 +85,8 @@ fun ChoyxonaApp(
     val uiState by authViewModel.uiState.collectAsState()
     val mainUiState by mainViewModel.uiState.collectAsState()
     val activeFilialId = uiState.currentUser?.filialId ?: uiState.userInfo?.activeFilialId
-    val canSwitchFilial = uiState.currentUser?.roles?.any {
-        it.equals("admin", ignoreCase = true) || it.equals("superadmin", ignoreCase = true)
-    } == true
+    // Every role may switch filial; oshpaz just starts in their assigned one.
+    val canSwitchFilial = uiState.currentUser != null
 
     LaunchedEffect(activeFilialId) {
         mainViewModel.setActiveFilial(activeFilialId)
