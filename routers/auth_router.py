@@ -151,7 +151,7 @@ async def _perform_login(username: str, password: str):
         filials_query = select(filials).where(filials.c.is_active == True).order_by(filials.c.name)
         all_filials = await database.fetch_all(filials_query)
         available_filials = [
-            {"id": f['id'], "name": f['name']}
+            {"id": f['id'], "name": f['name'], "has_saboy": f['has_saboy']}
             for f in all_filials
         ]
 
@@ -163,7 +163,7 @@ async def _perform_login(username: str, password: str):
         filials_query = select(filials).where(filials.c.is_active == True).order_by(filials.c.name)
         all_filials = await database.fetch_all(filials_query)
         available_filials = [
-            {"id": f['id'], "name": f['name']}
+            {"id": f['id'], "name": f['name'], "has_saboy": f['has_saboy']}
             for f in all_filials
         ]
 
@@ -207,7 +207,8 @@ async def get_available_filials():
             {
                 "id": f['id'],
                 "name": f['name'],
-                "description": f['description']
+                "description": f['description'],
+                "has_saboy": f['has_saboy']
             }
             for f in available_filials
         ]
@@ -286,7 +287,10 @@ async def switch_filial(
     # returned on every switch — not only at login.
     filials_query = select(filials).where(filials.c.is_active == True).order_by(filials.c.name)
     all_filials = await database.fetch_all(filials_query)
-    available_filials = [{"id": f['id'], "name": f['name']} for f in all_filials]
+    available_filials = [
+        {"id": f['id'], "name": f['name'], "has_saboy": f['has_saboy']}
+        for f in all_filials
+    ]
 
     return {
         "access_token": access_token,

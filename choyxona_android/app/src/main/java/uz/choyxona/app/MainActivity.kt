@@ -201,8 +201,95 @@ fun ChoyxonaApp(
                 activeFilialId = activeFilialId,
                 onFilialSelected = { filialId ->
                     authViewModel.selectFilial(filialId)
+                },
+                onNavigateToSaboys = {
+                    navController.navigate("saboys")
                 }
             )
+        }
+
+        // ==================== SABOYS ====================
+        composable("saboys") {
+            LaunchedEffect(activeFilialId) {
+                mainViewModel.loadSaboys()
+            }
+
+            SaboysScreen(
+                saboys = mainUiState.saboys,
+                isLoading = mainUiState.isLoading,
+                onNavigateBack = { navController.popBackStack() },
+                onCreateSaboy = { navController.navigate("create_saboy") },
+                onEditSaboy = { saboy -> navController.navigate("edit_saboy/${saboy.id}") },
+                onDeleteSaboy = { saboy -> mainViewModel.deleteSaboy(saboy.id) }
+            )
+        }
+
+        // ==================== CREATE SABOY ====================
+        composable("create_saboy") {
+            var isSaving by remember { mutableStateOf(false) }
+            var saveError by remember { mutableStateOf<String?>(null) }
+            val filial = uiState.availableFilials.firstOrNull { it.id == activeFilialId }
+
+            SaboyFormScreen(
+                existing = null,
+                filialName = filial?.name,
+                isLoading = isSaving,
+                error = saveError,
+                onNavigateBack = { navController.popBackStack() },
+                onSubmit = { date, time, description ->
+                    val filialId = activeFilialId
+                    if (filialId == null) {
+                        saveError = "Filial tanlanmagan"
+                    } else {
+                        isSaving = true
+                        saveError = null
+                        mainViewModel.createSaboy(
+                            filialId = filialId,
+                            saboyDate = date,
+                            saboyTime = time,
+                            description = description
+                        ) { error ->
+                            isSaving = false
+                            if (error == null) navController.popBackStack() else saveError = error
+                        }
+                    }
+                }
+            )
+        }
+
+        // ==================== EDIT SABOY ====================
+        composable(
+            route = "edit_saboy/{saboyId}",
+            arguments = listOf(navArgument("saboyId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val saboyId = backStackEntry.arguments?.getInt("saboyId") ?: return@composable
+            val saboy = mainUiState.saboys.find { it.id == saboyId }
+
+            if (saboy != null) {
+                var isSaving by remember { mutableStateOf(false) }
+                var saveError by remember { mutableStateOf<String?>(null) }
+
+                SaboyFormScreen(
+                    existing = saboy,
+                    filialName = saboy.filialName,
+                    isLoading = isSaving,
+                    error = saveError,
+                    onNavigateBack = { navController.popBackStack() },
+                    onSubmit = { date, time, description ->
+                        isSaving = true
+                        saveError = null
+                        mainViewModel.updateSaboy(
+                            saboyId = saboyId,
+                            saboyDate = date,
+                            saboyTime = time,
+                            description = description
+                        ) { error ->
+                            isSaving = false
+                            if (error == null) navController.popBackStack() else saveError = error
+                        }
+                    }
+                )
+            }
         }
 
         // ==================== SETTINGS ====================

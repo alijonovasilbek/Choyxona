@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.MeetingRoom
 import androidx.compose.material.icons.filled.Settings
@@ -79,12 +80,15 @@ fun DashboardScreen(
     onStatsRange: (String, String) -> Unit = { _, _ -> },
     availableFilials: List<FilialInfo> = emptyList(),
     activeFilialId: Int? = null,
-    onFilialSelected: (Int) -> Unit = {}
+    onFilialSelected: (Int) -> Unit = {},
+    onNavigateToSaboys: () -> Unit = {}
 ) {
     val colors = LocalAppColors.current
     val formatter = remember { DateTimeFormatter.ISO_LOCAL_DATE }
     val displayFormatter = remember { DateTimeFormatter.ofPattern("dd.MM") }
     val showFilialSwitcher = canSwitchFilial && availableFilials.size >= 2
+    // Saboy faqat has_saboy = true bo'lgan filialda ko'rinadi (Markaziyda yo'q).
+    val showSaboys = availableFilials.firstOrNull { it.id == activeFilialId }?.hasSaboy == true
 
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
@@ -360,6 +364,24 @@ fun DashboardScreen(
                             onClick = onNavigateToRooms,
                             modifier = Modifier.weight(1f)
                         )
+                    }
+
+                    if (showSaboys) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            ActionCard(
+                                title = "Saboylar",
+                                subtitle = "Sana va vaqt bo'yicha",
+                                icon = Icons.Default.Celebration,
+                                tint = colors.accent,
+                                onClick = onNavigateToSaboys,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
                 }
             }

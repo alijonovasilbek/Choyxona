@@ -62,6 +62,14 @@ async def create_saboy(
             detail="Filial not found"
         )
 
+    if not filial['has_saboy']:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Bu filialda saboy yuritilmaydi"
+        )
+
+    validate_active_filial_access(current_user, saboy_data.filial_id)
+
     insert_query = insert(saboys).values(
         filial_id=saboy_data.filial_id,
         saboy_date=saboy_data.saboy_date,

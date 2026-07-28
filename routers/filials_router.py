@@ -31,7 +31,8 @@ async def create_filial(
     insert_query = insert(filials).values(
         name=filial_data.name,
         description=filial_data.description,
-        is_active=True
+        is_active=True,
+        has_saboy=filial_data.has_saboy
     )
     filial_id = await database.execute(insert_query)
 
@@ -44,6 +45,7 @@ async def create_filial(
         "name": created_filial['name'],
         "description": created_filial['description'],
         "is_active": created_filial['is_active'],
+        "has_saboy": created_filial['has_saboy'],
         "created_at": created_filial['created_at'],
         "updated_at": created_filial['updated_at']
     }
@@ -72,6 +74,7 @@ async def get_all_filials(
             "name": filial['name'],
             "description": filial['description'],
             "is_active": filial['is_active'],
+            "has_saboy": filial['has_saboy'],
             "created_at": filial['created_at'],
             "updated_at": filial['updated_at']
         }
@@ -102,6 +105,7 @@ async def get_filial(
         "name": filial['name'],
         "description": filial['description'],
         "is_active": filial['is_active'],
+        "has_saboy": filial['has_saboy'],
         "created_at": filial['created_at'],
         "updated_at": filial['updated_at']
     }
@@ -144,6 +148,9 @@ async def update_filial(
 
     if filial_data.description is not None:
         update_data['description'] = filial_data.description
+
+    if filial_data.has_saboy is not None:
+        update_data['has_saboy'] = filial_data.has_saboy
     if filial_data.is_active is not None:
         update_data['is_active'] = filial_data.is_active
 
@@ -161,6 +168,7 @@ async def update_filial(
         "name": updated_filial['name'],
         "description": updated_filial['description'],
         "is_active": updated_filial['is_active'],
+        "has_saboy": updated_filial['has_saboy'],
         "created_at": updated_filial['created_at'],
         "updated_at": updated_filial['updated_at']
     }

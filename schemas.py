@@ -66,12 +66,14 @@ class UserResponse(BaseModel):
 class FilialCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
+    has_saboy: bool = False
 
 
 class FilialUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = None
     is_active: Optional[bool] = None
+    has_saboy: Optional[bool] = None
 
 
 class FilialResponse(BaseModel):
@@ -79,6 +81,7 @@ class FilialResponse(BaseModel):
     name: str
     description: Optional[str] = None
     is_active: bool
+    has_saboy: bool = False
     created_at: datetime
     updated_at: datetime
 

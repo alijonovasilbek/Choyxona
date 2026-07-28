@@ -123,6 +123,34 @@ interface BookingService {
     ): Response<Unit>
 }
 
+interface SaboyService {
+    @GET("saboys")
+    suspend fun getSaboys(
+        @Header("Authorization") token: String,
+        @Query("filial_id") filialId: Int? = null,
+        @Query("saboy_date") saboyDate: String? = null
+    ): Response<List<SaboyResponse>>
+
+    @POST("saboys")
+    suspend fun createSaboy(
+        @Header("Authorization") token: String,
+        @Body request: SaboyCreateRequest
+    ): Response<SaboyResponse>
+
+    @PUT("saboys/{saboy_id}")
+    suspend fun updateSaboy(
+        @Header("Authorization") token: String,
+        @Path("saboy_id") saboyId: Int,
+        @Body request: SaboyUpdateRequest
+    ): Response<SaboyResponse>
+
+    @DELETE("saboys/{saboy_id}")
+    suspend fun deleteSaboy(
+        @Header("Authorization") token: String,
+        @Path("saboy_id") saboyId: Int
+    ): Response<Unit>
+}
+
 interface UserService {
     @GET("users")
     suspend fun getAllUsers(
@@ -224,6 +252,7 @@ object ApiClient {
     val auth: AuthService = retrofit.create(AuthService::class.java)
     val rooms: RoomService = retrofit.create(RoomService::class.java)
     val bookings: BookingService = retrofit.create(BookingService::class.java)
+    val saboys: SaboyService = retrofit.create(SaboyService::class.java)
     val users: UserService = retrofit.create(UserService::class.java)
     val reports: ReportService = retrofit.create(ReportService::class.java)
     val notifications: NotificationApi = retrofit.create(NotificationApi::class.java)

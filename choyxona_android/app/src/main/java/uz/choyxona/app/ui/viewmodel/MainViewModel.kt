@@ -10,10 +10,12 @@ import kotlinx.coroutines.launch
 import uz.choyxona.app.data.local.TokenManager
 import uz.choyxona.app.data.model.BookingResponse
 import uz.choyxona.app.data.model.RoomResponse
+import uz.choyxona.app.data.model.SaboyResponse
 import uz.choyxona.app.data.model.UserResponse
 import uz.choyxona.app.data.repository.BookingRepository
 import uz.choyxona.app.data.repository.ReportRepository
 import uz.choyxona.app.data.repository.RoomRepository
+import uz.choyxona.app.data.repository.SaboyRepository
 import uz.choyxona.app.data.repository.UserRepository
 import uz.choyxona.app.ui.screen.DashboardStats
 import uz.choyxona.app.ui.screen.ReportStats
@@ -26,6 +28,7 @@ data class MainUiState(
     val bookings: List<BookingResponse> = emptyList(),
     val rooms: List<RoomResponse> = emptyList(),
     val users: List<UserResponse> = emptyList(),
+    val saboys: List<SaboyResponse> = emptyList(),
     val dashboardStats: DashboardStats? = null,
     val reportStats: ReportStats? = null
 )
@@ -35,7 +38,8 @@ class MainViewModel(
     private val bookingRepository: BookingRepository = BookingRepository(),
     private val roomRepository: RoomRepository = RoomRepository(),
     private val reportRepository: ReportRepository = ReportRepository(),
-    private val userRepository: UserRepository = UserRepository()
+    private val userRepository: UserRepository = UserRepository(),
+    private val saboyRepository: SaboyRepository = SaboyRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -57,7 +61,109 @@ class MainViewModel(
         loadBookings()
         loadRooms()
         loadUsers()
+        loadSaboys()
         loadStats()
+    }
+
+    fun loadSaboys() {
+        viewModelScope.launch {
+            val token = tokenManager.accessToken.first()
+            if (token.isNullOrEmpty()) {
+                _uiState.value = _uiState.value.copy(error = "Not authenticated")
+                return@launch
+            }
+
+            val result = saboyRepository.getSaboys(
+                token = token,
+                filialId = activeFilialId
+            )
+            if (result.isSuccess) {
+                _uiState.value = _uiState.value.copy(saboys = result.getOrNull().orEmpty())
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    error = result.exceptionOrNull()?.message
+                )
+            }
+        }
+    }
+
+    fun createSaboy(
+        filialId: Int,
+        saboyDate: String,
+        saboyTime: String,
+        description: String,
+        onResult: (String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            val token = tokenManager.accessToken.first()
+            if (token.isNullOrEmpty()) {
+                onResult("Sessiya tugagan, qaytadan kiring")
+                return@launch
+            }
+
+            val result = saboyRepository.createSaboy(
+                token = token,
+                filialId = filialId,
+                saboyDate = saboyDate,
+                saboyTime = saboyTime,
+                description = description
+            )
+            if (result.isSuccess) {
+                loadSaboys()
+                onResult(null)
+            } else {
+                onResult(result.exceptionOrNull()?.message ?: "Saboy qo'shib bo'lmadi")
+            }
+        }
+    }
+
+    fun updateSaboy(
+        saboyId: Int,
+        saboyDate: String,
+        saboyTime: String,
+        description: String,
+        onResult: (String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            val token = tokenManager.accessToken.first()
+            if (token.isNullOrEmpty()) {
+                onResult("Sessiya tugagan, qaytadan kiring")
+                return@launch
+            }
+
+            val result = saboyRepository.updateSaboy(
+                token = token,
+                saboyId = saboyId,
+                saboyDate = saboyDate,
+                saboyTime = saboyTime,
+                description = description
+            )
+            if (result.isSuccess) {
+                loadSaboys()
+                onResult(null)
+            } else {
+                onResult(result.exceptionOrNull()?.message ?: "Saboyni yangilab bo'lmadi")
+            }
+        }
+    }
+
+    fun deleteSaboy(saboyId: Int) {
+        viewModelScope.launch {
+            val token = tokenManager.accessToken.first()
+            if (token.isNullOrEmpty()) {
+                _uiState.value = _uiState.value.copy(error = "Not authenticated")
+                return@launch
+            }
+
+            val result = saboyRepository.deleteSaboy(token, saboyId)
+            if (result.isSuccess) {
+                loadSaboys()
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    error = result.exceptionOrNull()?.message
+                )
+            }
+        }
     }
 
     fun loadBookings() {

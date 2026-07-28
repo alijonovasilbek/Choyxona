@@ -15,7 +15,10 @@ data class FilialInfo(
     @SerializedName("id")
     val id: Int,
     @SerializedName("name")
-    val name: String
+    val name: String,
+    // Saboy faqat ba'zi filiallarda yuritiladi (Markaziyda yo'q).
+    @SerializedName("has_saboy")
+    val hasSaboy: Boolean = false
 )
 
 data class AvailableFilialsResponse(

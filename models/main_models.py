@@ -28,6 +28,8 @@ filials = Table(
     Column('name', String(100), nullable=False, unique=True),  # e.g., "1-FILIAL", "2-FILIAL"
     Column('description', Text, nullable=True),
     Column('is_active', Boolean, default=True),
+    # Saboy faqat ba'zi filiallarda bo'ladi (masalan Markaziyda yo'q).
+    Column('has_saboy', Boolean, nullable=False, server_default='false'),
     Column('created_at', DateTime, nullable=False, server_default=func.now()),
     Column('updated_at', DateTime, nullable=False, server_default=func.now(), onupdate=func.now()),
 )
