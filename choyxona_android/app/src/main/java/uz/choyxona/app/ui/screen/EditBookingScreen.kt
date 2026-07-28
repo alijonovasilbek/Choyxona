@@ -21,6 +21,7 @@ import uz.choyxona.app.ui.components.GlassButton
 import uz.choyxona.app.ui.components.GlassTextField
 import uz.choyxona.app.ui.components.LiquidGlassCard
 import uz.choyxona.app.ui.theme.*
+import uz.choyxona.app.ui.util.roomNameComparator
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -192,7 +193,9 @@ fun EditBookingScreen(
                 title = { Text("Xonani tanlang") },
                 text = {
                     Column {
-                        rooms.filter { it.isActive }.forEach { room ->
+                        rooms.filter { it.isActive }
+                            .sortedWith(roomNameComparator { it.name })
+                            .forEach { room ->
                             OutlinedButton(
                                 onClick = {
                                     selectedRoom = room

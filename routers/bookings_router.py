@@ -10,6 +10,7 @@ from schemas import (
     BookingStatusEnum
 )
 from auth import require_admin_or_oshpaz, get_current_user
+from room_ordering import room_order_key
 from typing import List, Optional
 from datetime import date, datetime
 import asyncio
@@ -220,6 +221,13 @@ async def get_bookings(
 
     all_bookings = await database.fetch_all(query)
 
+    # Keep newest date first, but order rooms within a date: XONA before SO'RI.
+    all_bookings = sorted(
+        all_bookings,
+        key=lambda booking: room_order_key(booking['room_name'], booking['filial_name'])
+    )
+    all_bookings.sort(key=lambda booking: booking['booking_date'], reverse=True)
+
     return [
         {
             "id": booking['id'],
@@ -289,8 +297,13 @@ async def get_bookings_by_date(
             )
         )
 
-    query = query.order_by(rooms.c.name)
     date_bookings = await database.fetch_all(query)
+
+    # XONA before SO'RI, then numeric order — plain SQL sorts "10-" before "2-".
+    date_bookings = sorted(
+        date_bookings,
+        key=lambda booking: room_order_key(booking['room_name'], booking['filial_name'])
+    )
 
     return [
         {

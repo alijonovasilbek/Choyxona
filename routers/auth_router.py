@@ -290,6 +290,12 @@ async def switch_filial(
     access_token = create_access_token(data=token_data)
     refresh_token = create_refresh_token(data=token_data)
 
+    # The client keeps a header switcher populated from this list, so it must be
+    # returned on every switch — not only at login.
+    filials_query = select(filials).where(filials.c.is_active == True).order_by(filials.c.name)
+    all_filials = await database.fetch_all(filials_query)
+    available_filials = [{"id": f['id'], "name": f['name']} for f in all_filials]
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -301,6 +307,8 @@ async def switch_filial(
             "roles": current_user['roles'],
             "user_filial_id": current_user.get('user_filial_id'),
             "active_filial_id": filial_id,
-            "active_filial_name": filial['name']
+            "active_filial_name": filial['name'],
+            "available_filials": available_filials,
+            "is_oshpaz": False
         }
     }

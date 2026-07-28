@@ -85,9 +85,17 @@ fun ChoyxonaApp(
     val uiState by authViewModel.uiState.collectAsState()
     val mainUiState by mainViewModel.uiState.collectAsState()
     val activeFilialId = uiState.currentUser?.filialId ?: uiState.userInfo?.activeFilialId
+    val canSwitchFilial = uiState.currentUser?.roles?.any {
+        it.equals("admin", ignoreCase = true) || it.equals("superadmin", ignoreCase = true)
+    } == true
 
     LaunchedEffect(activeFilialId) {
         mainViewModel.setActiveFilial(activeFilialId)
+    }
+
+    // Header switcher needs the filial list even on a restored session.
+    LaunchedEffect(uiState.isLoggedIn, uiState.currentUser?.id) {
+        if (uiState.isLoggedIn) authViewModel.ensureAvailableFilialsLoaded()
     }
 
     // Navigation
@@ -177,9 +185,7 @@ fun ChoyxonaApp(
                     authViewModel.startFilialSelection()
                     navController.navigate("filial_selection")
                 },
-                canSwitchFilial = uiState.currentUser?.roles?.any {
-                    it.equals("admin", ignoreCase = true) || it.equals("superadmin", ignoreCase = true)
-                } == true,
+                canSwitchFilial = canSwitchFilial,
                 onLogout = {
                     authViewModel.logout()
                     navController.navigate("login") {
@@ -191,6 +197,11 @@ fun ChoyxonaApp(
                 },
                 onStatsRange = { from, to ->
                     mainViewModel.loadStatsRange(from, to)
+                },
+                availableFilials = uiState.availableFilials,
+                activeFilialId = activeFilialId,
+                onFilialSelected = { filialId ->
+                    authViewModel.selectFilial(filialId)
                 }
             )
         }
@@ -210,9 +221,7 @@ fun ChoyxonaApp(
                     authViewModel.startFilialSelection()
                     navController.navigate("filial_selection")
                 },
-                canSwitchFilial = uiState.currentUser?.roles?.any {
-                    it.equals("admin", ignoreCase = true) || it.equals("superadmin", ignoreCase = true)
-                } == true,
+                canSwitchFilial = canSwitchFilial,
                 onLogout = {
                     authViewModel.logout()
                     navController.navigate("login") {
@@ -257,6 +266,12 @@ fun ChoyxonaApp(
                             }
                         }
                     }
+                },
+                availableFilials = uiState.availableFilials,
+                activeFilialId = activeFilialId,
+                canSwitchFilial = canSwitchFilial,
+                onFilialSelected = { filialId ->
+                    authViewModel.selectFilial(filialId)
                 }
             )
         }

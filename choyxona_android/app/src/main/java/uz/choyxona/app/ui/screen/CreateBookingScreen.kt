@@ -20,6 +20,7 @@ import uz.choyxona.app.ui.components.GlassButton
 import uz.choyxona.app.ui.components.GlassTextField
 import uz.choyxona.app.ui.components.LiquidGlassCard
 import uz.choyxona.app.ui.theme.*
+import uz.choyxona.app.ui.util.roomNameComparator
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
@@ -45,7 +46,9 @@ fun CreateBookingScreen(
     var selectedRoom by remember { mutableStateOf<RoomResponse?>(null) }
     var selectedDate by remember(parsedInitialDate) { mutableStateOf(parsedInitialDate ?: LocalDate.now()) }
     var description by remember { mutableStateOf("") }
-    val activeRooms = remember(rooms) { rooms.filter { it.isActive } }
+    val activeRooms = remember(rooms) {
+        rooms.filter { it.isActive }.sortedWith(roomNameComparator { it.name })
+    }
 
     var showRoomPicker by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }

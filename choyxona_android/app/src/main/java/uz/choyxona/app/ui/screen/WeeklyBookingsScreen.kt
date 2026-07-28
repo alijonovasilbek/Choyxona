@@ -26,9 +26,12 @@ import androidx.compose.ui.unit.sp
 import uz.choyxona.app.data.model.BookingResponse
 import uz.choyxona.app.data.model.BookingStatus
 import uz.choyxona.app.data.model.RoomResponse
+import uz.choyxona.app.data.model.FilialInfo
+import uz.choyxona.app.ui.components.FilialSwitcher
 import uz.choyxona.app.ui.components.GlassCard
 import uz.choyxona.app.ui.components.LiquidGlassCard
 import uz.choyxona.app.ui.theme.*
+import uz.choyxona.app.ui.util.roomNameComparator
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -45,7 +48,11 @@ fun WeeklyBookingsScreen(
     onCreateBooking: () -> Unit,
     onCreateBookingForRoomDate: (roomId: Int, date: LocalDate) -> Unit,
     onEditBooking: (BookingResponse) -> Unit,
-    onDeleteBooking: (BookingResponse) -> Unit
+    onDeleteBooking: (BookingResponse) -> Unit,
+    availableFilials: List<FilialInfo> = emptyList(),
+    activeFilialId: Int? = null,
+    canSwitchFilial: Boolean = false,
+    onFilialSelected: (Int) -> Unit = {}
 ) {
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
     var currentWeekStart by remember { mutableStateOf(
@@ -122,12 +129,25 @@ fun WeeklyBookingsScreen(
                     )
                 }
 
-                Text(
-                    text = "Bronlar",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "Bronlar",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+
+                    FilialSwitcher(
+                        filials = availableFilials,
+                        activeFilialId = activeFilialId,
+                        onFilialSelected = onFilialSelected,
+                        enabled = canSwitchFilial,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                }
 
                 IconButton(onClick = onCreateBooking) {
                     Icon(
@@ -388,7 +408,7 @@ fun DayBookingsView(
     val knownRoomIds = remember(rooms) { rooms.map { it.id }.toSet() }
     val dayRooms = remember(rooms, bookingsByRoomId, knownRoomIds, bookings) {
         val roomsFromCatalog = rooms
-            .sortedBy { it.name.lowercase() }
+            .sortedWith(roomNameComparator { it.name })
             .map { room ->
                 DayRoomBookings(
                     roomId = room.id,
@@ -411,7 +431,7 @@ fun DayBookingsView(
                     bookings = roomBookings.sortedBy { it.safeBookingTimeSortKey() }
                 )
             }
-            .sortedBy { it.roomName.lowercase() }
+            .sortedWith(roomNameComparator { it.roomName })
 
         roomsFromCatalog + missingRooms
     }

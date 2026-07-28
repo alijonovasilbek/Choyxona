@@ -43,7 +43,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import uz.choyxona.app.data.model.FilialInfo
 import uz.choyxona.app.data.model.UserResponse
+import uz.choyxona.app.ui.components.FilialSwitcher
 import uz.choyxona.app.ui.components.GlassButton
 import uz.choyxona.app.ui.components.GlassCard
 import uz.choyxona.app.ui.components.IconChip
@@ -74,11 +76,15 @@ fun DashboardScreen(
     canSwitchFilial: Boolean = false,
     onLogout: () -> Unit,
     onNavigateToSettings: () -> Unit = {},
-    onStatsRange: (String, String) -> Unit = { _, _ -> }
+    onStatsRange: (String, String) -> Unit = { _, _ -> },
+    availableFilials: List<FilialInfo> = emptyList(),
+    activeFilialId: Int? = null,
+    onFilialSelected: (Int) -> Unit = {}
 ) {
     val colors = LocalAppColors.current
     val formatter = remember { DateTimeFormatter.ISO_LOCAL_DATE }
     val displayFormatter = remember { DateTimeFormatter.ofPattern("dd.MM") }
+    val showFilialSwitcher = canSwitchFilial && availableFilials.size >= 2
 
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
@@ -236,7 +242,14 @@ fun DashboardScreen(
                             fontWeight = FontWeight.Bold,
                             color = colors.textPrimary
                         )
-                        if (currentUser?.filialName != null) {
+                        if (showFilialSwitcher) {
+                            FilialSwitcher(
+                                filials = availableFilials,
+                                activeFilialId = activeFilialId,
+                                onFilialSelected = onFilialSelected,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        } else if (currentUser?.filialName != null) {
                             Text(
                                 text = currentUser.filialName,
                                 fontSize = 13.sp,
@@ -247,7 +260,9 @@ fun DashboardScreen(
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    if (canSwitchFilial) {
+                    // Full-screen picker stays reachable when the inline switcher
+                    // has nothing to offer (single filial, or list not loaded yet).
+                    if (canSwitchFilial && !showFilialSwitcher) {
                         IconButton(onClick = onSwitchFilial) {
                             Icon(
                                 imageVector = Icons.Default.Store,

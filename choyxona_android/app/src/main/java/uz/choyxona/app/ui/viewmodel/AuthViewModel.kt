@@ -203,7 +203,12 @@ class AuthViewModel(
                                     currentUser = user,
                                     userInfo = tokenResponse.userInfo,
                                     needsFilialSelection = false,
-                                    isLoading = false
+                                    isLoading = false,
+                                    // The header switcher reads this list, so it must
+                                    // survive a switch instead of being reset to empty.
+                                    availableFilials = tokenResponse.userInfo.availableFilials
+                                        .takeIf { it.isNotEmpty() }
+                                        ?: _uiState.value.availableFilials
                                 )
                             } else {
                                 _uiState.value = _uiState.value.copy(
@@ -234,6 +239,24 @@ class AuthViewModel(
                     isLoading = false,
                     error = "Token topilmadi, qayta login qiling"
                 )
+            }
+        }
+    }
+
+    /**
+     * Backfill the filial list for admins who reached a logged-in state without
+     * it (restored session, or a login response that omitted the list). The
+     * header switcher stays hidden until this resolves.
+     */
+    fun ensureAvailableFilialsLoaded() {
+        val state = _uiState.value
+        if (state.availableFilials.isNotEmpty()) return
+        if (!isAdminOrSuperAdmin(state.currentUser?.roles.orEmpty())) return
+
+        viewModelScope.launch {
+            val filials = authRepository.getAvailableFilials().getOrNull()
+            if (!filials.isNullOrEmpty()) {
+                _uiState.value = _uiState.value.copy(availableFilials = filials)
             }
         }
     }

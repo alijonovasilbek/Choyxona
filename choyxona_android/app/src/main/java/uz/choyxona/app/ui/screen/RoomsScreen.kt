@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import uz.choyxona.app.data.model.RoomResponse
 import uz.choyxona.app.ui.components.GlassCard
 import uz.choyxona.app.ui.theme.*
+import uz.choyxona.app.ui.util.roomNameComparator
 
 @Composable
 fun RoomsScreen(
@@ -38,6 +39,7 @@ fun RoomsScreen(
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var selectedRoom by remember { mutableStateOf<RoomResponse?>(null) }
+    val sortedRooms = remember(rooms) { rooms.sortedWith(roomNameComparator { it.name }) }
 
     if (showDeleteDialog && selectedRoom != null) {
         AlertDialog(
@@ -152,7 +154,7 @@ fun RoomsScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(rooms) { room ->
+                    items(sortedRooms) { room ->
                         RoomCard(
                             room = room,
                             onClick = { onRoomClick(room) },
