@@ -149,6 +149,14 @@ fun WeeklyBookingsScreen(
                     )
                 }
 
+                IconButton(onClick = onRefresh) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Yangilash",
+                        tint = PrimaryGreen
+                    )
+                }
+
                 IconButton(onClick = onCreateBooking) {
                     Icon(
                         imageVector = Icons.Default.Add,

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EventBusy
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,6 +30,7 @@ import uz.choyxona.app.ui.theme.LocalAppColors
 fun SaboysScreen(
     saboys: List<SaboyResponse>,
     isLoading: Boolean,
+    onRefresh: () -> Unit,
     onNavigateBack: () -> Unit,
     onCreateSaboy: () -> Unit,
     onEditSaboy: (SaboyResponse) -> Unit,
@@ -95,6 +97,14 @@ fun SaboysScreen(
                     fontWeight = FontWeight.Bold,
                     color = colors.textPrimary
                 )
+
+                IconButton(onClick = onRefresh) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Yangilash",
+                        tint = colors.primary
+                    )
+                }
 
                 IconButton(onClick = onCreateSaboy) {
                     Icon(

@@ -15,6 +15,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import uz.choyxona.app.data.model.BookingResponse
+import uz.choyxona.app.data.model.BookingStatus
 import uz.choyxona.app.data.model.RoomResponse
 import uz.choyxona.app.ui.components.GlassButton
 import uz.choyxona.app.ui.components.GlassTextField
@@ -29,6 +31,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun CreateBookingScreen(
     rooms: List<RoomResponse>,
+    bookings: List<BookingResponse> = emptyList(),
     initialRoomId: Int? = null,
     initialDate: String? = null,
     onCreateBooking: (
@@ -48,6 +51,22 @@ fun CreateBookingScreen(
     var description by remember { mutableStateOf("") }
     val activeRooms = remember(rooms) {
         rooms.filter { it.isActive }.sortedWith(roomNameComparator { it.name })
+    }
+
+    // One room holds one booking per day. Cancelled bookings free it again,
+    // so they don't count as occupied. The backend rejects a duplicate too —
+    // this only stops the user from picking one in the first place.
+    val bookedRoomIds = remember(bookings, selectedDate) {
+        val day = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+        bookings
+            .filter { it.bookingDate == day }
+            .filter { (it.status as? BookingStatus) != BookingStatus.BEKOR_QILINDI }
+            .map { it.roomId }
+            .toSet()
+    }
+    val selectedRoomIsBooked = selectedRoom?.let { it.id in bookedRoomIds } == true
+    val freeRooms = remember(activeRooms, bookedRoomIds) {
+        activeRooms.filter { it.id !in bookedRoomIds }
     }
 
     var showRoomPicker by remember { mutableStateOf(false) }
@@ -173,6 +192,20 @@ fun CreateBookingScreen(
                                 fontSize = 12.sp,
                                 color = ErrorRed
                             )
+                        } else if (selectedRoomIsBooked) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "${selectedRoom?.name} bu sanada allaqachon band. Boshqa xona yoki sanani tanlang.",
+                                fontSize = 12.sp,
+                                color = ErrorRed
+                            )
+                        } else if (freeRooms.isEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Bu sanada bo'sh xona qolmagan.",
+                                fontSize = 12.sp,
+                                color = ErrorRed
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(20.dp))
@@ -228,7 +261,7 @@ fun CreateBookingScreen(
                                     }
                                 }
                             },
-                            enabled = !isLoading,
+                            enabled = !isLoading && !selectedRoomIsBooked,
                             isLoading = isLoading
                         )
                     }
@@ -247,21 +280,33 @@ fun CreateBookingScreen(
                                 color = TextSecondary
                             )
                         } else {
-                            Column {
+                            Column(
+                                modifier = Modifier.verticalScroll(rememberScrollState())
+                            ) {
                                 activeRooms.forEach { room ->
+                                    val isBooked = room.id in bookedRoomIds
                                     OutlinedButton(
                                         onClick = {
                                             selectedRoom = room
                                             showRoomPicker = false
                                         },
+                                        enabled = !isBooked,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(vertical = 4.dp)
                                     ) {
                                         Icon(Icons.Default.MeetingRoom, null)
                                         Spacer(Modifier.width(8.dp))
-                                        Text(room.name, modifier = Modifier.weight(1f), color = TextPrimary)
-                                        Text(room.filialName ?: "", fontSize = 12.sp)
+                                        Text(
+                                            room.name,
+                                            modifier = Modifier.weight(1f),
+                                            color = if (isBooked) TextSecondary else TextPrimary
+                                        )
+                                        Text(
+                                            text = if (isBooked) "Band" else (room.filialName ?: ""),
+                                            fontSize = 12.sp,
+                                            color = if (isBooked) ErrorRed else TextSecondary
+                                        )
                                     }
                                 }
                             }

@@ -10,6 +10,7 @@ from schemas import (
     BookingStatusEnum
 )
 from auth import require_admin_or_oshpaz, get_current_user
+from local_time import today_local
 from room_ordering import room_order_key
 from typing import List, Optional
 from datetime import date, datetime
@@ -17,6 +18,50 @@ import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
+
+# One room (xona or so'ri) may hold only one booking per day. A cancelled
+# booking releases the slot, so it is excluded from the occupancy check.
+SLOT_TAKEN_DETAIL = "Room is already booked for this date"
+
+
+async def _lock_slot(room_id: int, booking_date: date):
+    """
+    Serialize concurrent writes to the same room/date.
+
+    There is no unique index on (room_id, booking_date) — the legacy rows that
+    predate this rule would block one — so two simultaneous requests could
+    otherwise both pass the occupancy check and both insert. The transaction
+    level advisory lock closes that window; it is released on commit/rollback.
+    """
+    # Passed as a raw string on purpose: `databases` only binds values for str
+    # queries, a text() clause would be handed to ClauseElement.values().
+    await database.execute(
+        "SELECT pg_advisory_xact_lock(:room_id, :day)",
+        {"room_id": room_id, "day": booking_date.toordinal()},
+    )
+
+
+async def _slot_is_taken(room_id: int, booking_date: date, exclude_booking_id: Optional[int] = None) -> bool:
+    """True if the room already holds a non-cancelled booking on that date."""
+    conditions = [
+        bookings.c.room_id == room_id,
+        bookings.c.booking_date == booking_date,
+        bookings.c.status != BookingStatus.BEKOR_QILINDI,
+    ]
+
+    if exclude_booking_id is not None:
+        conditions.append(bookings.c.id != exclude_booking_id)
+
+    existing = await database.fetch_one(select(bookings.c.id).where(and_(*conditions)))
+    return existing is not None
+
+
+async def _ensure_slot_free(room_id: int, booking_date: date, exclude_booking_id: Optional[int] = None):
+    if await _slot_is_taken(room_id, booking_date, exclude_booking_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=SLOT_TAKEN_DETAIL
+        )
 
 
 async def _notify_filial_users(filial_id: int, title: str, body: str):
@@ -67,7 +112,8 @@ async def create_booking(
     Create new booking.
 
     Admin/Superadmin: Can create booking for any room (from any filial)
-    One room can only be booked once per day.
+    One room can only be booked once per day. A cancelled booking frees
+    the room again.
     """
     # Check if room exists
     room_query = select(rooms).where(rooms.c.id == booking_data.room_id)
@@ -85,24 +131,27 @@ async def create_booking(
             detail="Room is not active"
         )
 
-    # Check if booking date is not in the past
-    if booking_data.booking_date < date.today():
+    # Check if booking date is not in the past (Tashkent time, not server UTC)
+    if booking_data.booking_date < today_local():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot create booking for past dates"
         )
 
-    # Multiple bookings per room per day are allowed
+    # Occupancy check and insert must be atomic, otherwise two clients booking
+    # the same room/date at once would both succeed.
+    async with database.transaction():
+        await _lock_slot(booking_data.room_id, booking_data.booking_date)
+        await _ensure_slot_free(booking_data.room_id, booking_data.booking_date)
 
-    # Insert booking
-    insert_query = insert(bookings).values(
-        room_id=booking_data.room_id,
-        booking_date=booking_data.booking_date,
-        description=booking_data.description,
-        status=BookingStatus.KUTILMOQDA,
-        created_by=current_user['id']
-    )
-    booking_id = await database.execute(insert_query)
+        insert_query = insert(bookings).values(
+            room_id=booking_data.room_id,
+            booking_date=booking_data.booking_date,
+            description=booking_data.description,
+            status=BookingStatus.KUTILMOQDA,
+            created_by=current_user['id']
+        )
+        booking_id = await database.execute(insert_query)
 
     # Fetch created booking with room, filial and user info
     booking_query = select(
@@ -462,8 +511,20 @@ async def update_booking(
 
     # Update booking
     if update_data:
+        target_room_id = update_data.get('room_id', booking['room_id'])
+        target_date = update_data.get('booking_date', booking['booking_date'])
+        moved = (target_room_id, target_date) != (booking['room_id'], booking['booking_date'])
+
         update_query = update(bookings).where(bookings.c.id == booking_id).values(**update_data)
-        await database.execute(update_query)
+
+        if moved:
+            # Moving into another room/date must respect the one-booking-per-day rule.
+            async with database.transaction():
+                await _lock_slot(target_room_id, target_date)
+                await _ensure_slot_free(target_room_id, target_date, exclude_booking_id=booking_id)
+                await database.execute(update_query)
+        else:
+            await database.execute(update_query)
 
     # Fetch updated booking
     query = select(
@@ -539,9 +600,25 @@ async def update_booking_status(
         )
 
     # Update booking status
-    update_data = {'status': status_data.status.value}
-    update_query = update(bookings).where(bookings.c.id == booking_id).values(**update_data)
-    await database.execute(update_query)
+    new_status = status_data.status.value
+    previous_status = booking['status']
+    previous_status = getattr(previous_status, 'value', previous_status)
+    cancelled = BookingStatus.BEKOR_QILINDI.value
+
+    update_query = update(bookings).where(bookings.c.id == booking_id).values(status=new_status)
+
+    if previous_status == cancelled and new_status != cancelled:
+        # Un-cancelling claims the room/date back, so it must still be free.
+        async with database.transaction():
+            await _lock_slot(booking['room_id'], booking['booking_date'])
+            await _ensure_slot_free(
+                booking['room_id'],
+                booking['booking_date'],
+                exclude_booking_id=booking_id
+            )
+            await database.execute(update_query)
+    else:
+        await database.execute(update_query)
 
     # Fetch updated booking
     query = select(

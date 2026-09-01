@@ -8,6 +8,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -95,6 +98,27 @@ fun ChoyxonaApp(
     // Header switcher needs the filial list even on a restored session.
     LaunchedEffect(uiState.isLoggedIn, uiState.currentUser?.id) {
         if (uiState.isLoggedIn) authViewModel.ensureAvailableFilialsLoaded()
+    }
+
+    // Several people book at the same time, so the app polls while it is in
+    // the foreground and re-reads immediately when it comes back from the
+    // background. Without this a user only saw other people's bookings after
+    // Android eventually killed and cold-started the activity.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, uiState.isLoggedIn) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> if (uiState.isLoggedIn) mainViewModel.startAutoRefresh()
+                Lifecycle.Event.ON_STOP -> mainViewModel.stopAutoRefresh()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mainViewModel.stopAutoRefresh()
+        }
     }
 
     // Navigation
@@ -210,13 +234,14 @@ fun ChoyxonaApp(
 
         // ==================== SABOYS ====================
         composable("saboys") {
-            LaunchedEffect(activeFilialId) {
+            LaunchedEffect(Unit) {
                 mainViewModel.loadSaboys()
             }
 
             SaboysScreen(
                 saboys = mainUiState.saboys,
                 isLoading = mainUiState.isLoading,
+                onRefresh = { mainViewModel.loadSaboys() },
                 onNavigateBack = { navController.popBackStack() },
                 onCreateSaboy = { navController.navigate("create_saboy") },
                 onEditSaboy = { saboy -> navController.navigate("edit_saboy/${saboy.id}") },
@@ -319,12 +344,18 @@ fun ChoyxonaApp(
 
         // ==================== WEEKLY BOOKINGS ====================
         composable("weekly_bookings") {
+            LaunchedEffect(Unit) {
+                mainViewModel.loadBookings(silent = true)
+                mainViewModel.loadRooms(silent = true)
+            }
+
             WeeklyBookingsScreen(
                 bookings = mainUiState.bookings,
                 rooms = mainUiState.rooms,
                 isLoading = mainUiState.isLoading,
                 onRefresh = {
                     mainViewModel.loadBookings()
+                    mainViewModel.loadRooms(silent = true)
                 },
                 onBookingClick = { booking ->
                     // TODO: Navigate to booking details if needed
@@ -387,10 +418,12 @@ fun ChoyxonaApp(
 
             LaunchedEffect(activeFilialId) {
                 mainViewModel.loadRooms()
+                mainViewModel.loadBookings(silent = true)
             }
 
             CreateBookingScreen(
                 rooms = mainUiState.rooms,
+                bookings = mainUiState.bookings,
                 initialRoomId = initialRoomId,
                 initialDate = initialDate,
                 onCreateBooking = { roomId, date, description ->
@@ -480,6 +513,10 @@ fun ChoyxonaApp(
 
         // ==================== ROOMS ====================
         composable("rooms") {
+            LaunchedEffect(Unit) {
+                mainViewModel.loadRooms(silent = true)
+            }
+
             RoomsScreen(
                 rooms = mainUiState.rooms,
                 isLoading = mainUiState.isLoading,

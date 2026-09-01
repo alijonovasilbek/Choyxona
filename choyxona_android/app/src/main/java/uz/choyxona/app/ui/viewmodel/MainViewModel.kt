@@ -2,10 +2,13 @@ package uz.choyxona.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import uz.choyxona.app.data.local.TokenManager
 import uz.choyxona.app.data.model.BookingResponse
@@ -46,6 +49,15 @@ class MainViewModel(
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
     private var activeFilialId: Int? = null
 
+    // Bookings are entered by several people at once, so the screens have to
+    // pick up other users' changes without waiting for an app restart.
+    private var autoRefreshJob: Job? = null
+
+    // The dashboard lets the user pick a period; polling must not silently
+    // reset it back to the default last-7-days range.
+    private var statsDateFrom: String? = null
+    private var statsDateTo: String? = null
+
     init {
         loadData()
     }
@@ -63,6 +75,40 @@ class MainViewModel(
         loadUsers()
         loadSaboys()
         loadStats()
+    }
+
+    /**
+     * Re-reads everything the screens display without touching [MainUiState.isLoading],
+     * so a background poll never replaces the visible list with a spinner.
+     */
+    fun refreshQuietly() {
+        loadBookings(silent = true)
+        loadRooms(silent = true)
+        loadUsers(silent = true)
+        loadSaboys()
+        reloadStats()
+    }
+
+    /** Poll while the app is in the foreground. Cancelled in [stopAutoRefresh]. */
+    fun startAutoRefresh(intervalMillis: Long = AUTO_REFRESH_INTERVAL_MS) {
+        if (autoRefreshJob?.isActive == true) return
+
+        autoRefreshJob = viewModelScope.launch {
+            while (isActive) {
+                refreshQuietly()
+                delay(intervalMillis)
+            }
+        }
+    }
+
+    fun stopAutoRefresh() {
+        autoRefreshJob?.cancel()
+        autoRefreshJob = null
+    }
+
+    override fun onCleared() {
+        stopAutoRefresh()
+        super.onCleared()
     }
 
     fun loadSaboys() {
@@ -166,9 +212,9 @@ class MainViewModel(
         }
     }
 
-    fun loadBookings() {
+    fun loadBookings(silent: Boolean = false) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
+            if (!silent) _uiState.value = _uiState.value.copy(isLoading = true)
 
             val token = tokenManager.accessToken.first()
             if (!token.isNullOrEmpty()) {
@@ -196,9 +242,9 @@ class MainViewModel(
         }
     }
 
-    fun loadRooms() {
+    fun loadRooms(silent: Boolean = false) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
+            if (!silent) _uiState.value = _uiState.value.copy(isLoading = true)
 
             val token = tokenManager.accessToken.first()
             if (!token.isNullOrEmpty()) {
@@ -226,9 +272,9 @@ class MainViewModel(
         }
     }
 
-    fun loadUsers() {
+    fun loadUsers(silent: Boolean = false) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
+            if (!silent) _uiState.value = _uiState.value.copy(isLoading = true)
 
             val token = tokenManager.accessToken.first()
             if (!token.isNullOrEmpty()) {
@@ -262,7 +308,17 @@ class MainViewModel(
         )
     }
 
+    /** Re-runs the stats query for whatever period the user last selected. */
+    private fun reloadStats() {
+        val from = statsDateFrom
+        val to = statsDateTo
+        if (from != null && to != null) loadStatsRange(from, to) else loadStats()
+    }
+
     fun loadStatsRange(dateFrom: String, dateTo: String) {
+        statsDateFrom = dateFrom
+        statsDateTo = dateTo
+
         viewModelScope.launch {
             val token = tokenManager.accessToken.first()
             if (!token.isNullOrEmpty()) {
@@ -335,5 +391,10 @@ class MainViewModel(
                 )
             }
         }
+    }
+
+    companion object {
+        /** Foreground poll interval. Payload is small and the API answers in ~50ms. */
+        const val AUTO_REFRESH_INTERVAL_MS = 20_000L
     }
 }

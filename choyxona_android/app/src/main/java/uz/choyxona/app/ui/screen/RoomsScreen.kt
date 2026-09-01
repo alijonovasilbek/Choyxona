@@ -101,6 +101,14 @@ fun RoomsScreen(
                     color = TextPrimary
                 )
 
+                IconButton(onClick = onRefresh) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Yangilash",
+                        tint = PrimaryGreen
+                    )
+                }
+
                 IconButton(
                     onClick = onCreateRoom,
                     modifier = Modifier
