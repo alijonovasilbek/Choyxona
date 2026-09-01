@@ -43,7 +43,14 @@ android {
                 "\"https://choyxona.api.cognilabs.org:8443\""   // Server API
             )
 
-            isMinifyEnabled = true
+            // R8 stays off. Every APK that has ever run in production was an
+            // unminified build; the first minified one crashed on login,
+            // because R8 full mode (the default since AGP 8) erases the
+            // generic signatures Retrofit reads off suspend service methods.
+            // proguard-rules.pro now carries the keeps that fix it, so this
+            // can be flipped back on — but only after testing the whole app
+            // on a real device, not just the login screen.
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
