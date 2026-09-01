@@ -115,6 +115,14 @@ fun ChoyxonaApp(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
 
+        // ON_START already fired before login, so logging in has to start the
+        // poll itself instead of waiting for the next background/resume cycle.
+        if (uiState.isLoggedIn && lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            mainViewModel.startAutoRefresh()
+        } else if (!uiState.isLoggedIn) {
+            mainViewModel.stopAutoRefresh()
+        }
+
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             mainViewModel.stopAutoRefresh()
